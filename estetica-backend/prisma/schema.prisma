@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+
+enum Rol {
+  ADMIN
+  RECEPCIONISTA
+  TECNICO
+  CLIENTE
+}
+
+enum EstadoTurno {
+  PENDIENTE
+  CONFIRMADO
+  EN_PROCESO  // Agregado para cumplir la regla de negocio
+  COMPLETADO
+  CANCELADO
+  AUSENTE
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
+
+// --- MODELOS ---
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  apellido  String
+  email     String   @unique
+  password  String
+  rol       Rol
+  creadoEn  DateTime @default(now())
+
+  cliente   Cliente?
+  tecnico   Tecnico?
+}
+
+model Cliente {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int     @unique
+  telefono  String
+  notas     String? // Ideal para alergias o preferencias
+
+  // Eliminación en cascada: si se borra el usuario, se borra el cliente
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  turnos  Turno[]
+}
+
+model Tecnico {
+  id           Int     @id @default(autoincrement())
+  usuarioId    Int     @unique
+  especialidad String?
+
+  usuario  Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  turnos   Turno[]
+  horarios Horario[]
+}
+
+model Horario {
+  id         Int       @id @default(autoincrement())
+  tecnicoId  Int
+  dia        DiaSemana // Tipado fuerte para evitar errores tipográficos
+  horaInicio String    // Ej: "09:00"
+  horaFin    String    // Ej: "18:00"
+
+  tecnico Tecnico @relation(fields: [tecnicoId], references: [id], onDelete: Cascade)
+}
+
+model Servicio {
+  id              Int    @id @default(autoincrement())
+  nombre          String
+  duracionMinutos Int    // Nombre explícito para ayudar al cálculo de slots
+  precio          Float
+
+  turnos Turno[]
+}
+
+model Turno {
+  id                  Int         @id @default(autoincrement())
+  clienteId           Int
+  tecnicoId           Int
+  servicioId          Int
+
+  fechaInicio         DateTime
+  fechaFin            DateTime
+
+  estado              EstadoTurno @default(PENDIENTE)
+  confirmado          Boolean     @default(false)
+  recordatorioEnviado Boolean     @default(false)
+
+  notas               String?
+  creadoEn            DateTime    @default(now())
+
+  cliente  Cliente  @relation(fields: [clienteId], references: [id])
+  tecnico  Tecnico  @relation(fields: [tecnicoId], references: [id])
+  servicio Servicio @relation(fields: [servicioId], references: [id])
+  
+  // Relación 1 a 1 opcional con Pago (se crea al cobrar)
+  pago     Pago?
+}
+
+model Pago {
+  id        Int        @id @default(autoincrement())
+  turnoId   Int        @unique
+  monto     Float
+  metodo    MetodoPago
+  penalidad Boolean    @default(false)
+  creadoEn  DateTime   @default(now())
+
+  turno Turno @relation(fields: [turnoId], references: [id])
+}
