@@ -34,15 +34,37 @@ const slotTieneActivos = (slot) =>
   Array.isArray(slot.appointments) &&
   slot.appointments.some(a => ESTADOS_ACTIVOS.includes(a.status));
 
+// Extrae "YYYY-MM-DD" de cualquier formato:
+//   "2026-05-01T00:00:00.000Z"  →  "2026-05-01"
+//   "2026-05-01"                →  "2026-05-01"
+const extraerFecha = (str) => {
+  if (!str) return "";
+  return str.includes("T") ? str.slice(0, 10) : str;
+};
+
 const formatFecha = (str) => {
   if (!str) return "—";
-  const [y, m, d] = str.split("-");
+  const [y, m, d] = extraerFecha(str).split("-");
   return `${d}/${m}/${y}`;
 };
 
 const diaAbrev = (dateStr) => {
-  const fecha = new Date(dateStr + "T00:00:00");
+  const fecha = new Date(extraerFecha(dateStr) + "T00:00:00");
   return DIAS_ABREV[fecha.getDay()];
+};
+
+// Convierte cualquier formato de hora a "HH:MM":
+//   "1970-01-01T13:00:00.000Z"  →  "13:00"
+//   "13:00:00"                  →  "13:00"
+//   "13:00"                     →  "13:00"
+const formatHora = (str) => {
+  if (!str) return "—";
+  // Si contiene "T" es un ISO datetime → extraemos HH:MM en UTC
+  if (str.includes("T")) {
+    return new Date(str).toISOString().slice(11, 16);
+  }
+  // Si es "HH:MM:SS" o "HH:MM" → tomamos los primeros 5 caracteres
+  return str.slice(0, 5);
 };
 
 // ─── Estilos inline ───────────────────────────────────────────
@@ -586,7 +608,7 @@ const AperturaAgenda = () => {
                             {diaLabel}
                           </span>
                           <span style={{ fontSize: "13px", color: "#475569", marginLeft: "12px" }}>
-                            {h.startTime} → {h.endTime}
+                            {formatHora(h.startTime)} → {formatHora(h.endTime)}
                           </span>
                         </div>
                         <button
@@ -706,8 +728,8 @@ const AperturaAgenda = () => {
                             <strong style={{ color: "#6b21a8" }}>{diaAbrev(s.date)}</strong>
                           </td>
                           <td style={S.td}>{formatFecha(s.date)}</td>
-                          <td style={S.td}>{s.startTime}</td>
-                          <td style={S.td}>{s.endTime}</td>
+                          <td style={S.td}>{formatHora(s.startTime)}</td>
+                          <td style={S.td}>{formatHora(s.endTime)}</td>
                           <td style={S.td}>
                             <BadgeSlot activo={tieneActivos} />
                           </td>
