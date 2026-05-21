@@ -476,7 +476,7 @@ const AperturaAgenda = () => {
       {/* ── Encabezado ── */}
       <div style={{ marginBottom: "28px" }}>
         <h2 style={{ color: "#6b21a8", fontSize: "1.75rem", margin: "0 0 6px 0" }}>
-          📅 Apertura de Agenda
+          Apertura de Agenda
         </h2>
         <p style={{ color: "#64748b", fontSize: "1rem", margin: 0 }}>
           Configurá los horarios recurrentes del profesional y generá la disponibilidad mensual.
@@ -552,7 +552,7 @@ const AperturaAgenda = () => {
       {/* Placeholder cuando no hay profesional elegido */}
       {!profSelId ? (
         <div style={{ ...S.alertInfo, textAlign: "center", padding: "40px", fontSize: "14px" }}>
-          👆 Seleccioná un profesional para ver y configurar su agenda.
+          Seleccioná un profesional para ver y configurar su agenda.
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: "20px", alignItems: "start" }}>
@@ -563,7 +563,7 @@ const AperturaAgenda = () => {
           <div>
             <div style={S.card}>
               <div style={S.sectionHeader}>
-                <h3 style={S.sectionTitle}>🔁 Horarios Recurrentes</h3>
+                <h3 style={S.sectionTitle}>Horarios Recurrentes</h3>
                 <Button
                   onClick={() => {
                     setFormHorario(formHorarioVacio);
@@ -661,7 +661,7 @@ const AperturaAgenda = () => {
           <div style={S.card}>
             <div style={S.sectionHeader}>
               <h3 style={S.sectionTitle}>
-                📋 Agenda Generada — {nombresDelMes}
+                Agenda Generada — {nombresDelMes}
               </h3>
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                 {slots.length > 0 && (
