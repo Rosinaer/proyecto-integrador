@@ -29,13 +29,13 @@ const PacientesAdmin = () => {
     email: "",
     phone: "",
     cuilCuit: "",
+    clinicalNotes: "",
   });
 
   const [errorForm, setErrorForm] = useState("");
   const [cargandoForm, setCargandoForm] = useState(false);
 
   const { token } = useAuth();
-
 
   const cargarPacientes = async () => {
     try {
@@ -51,10 +51,10 @@ const PacientesAdmin = () => {
   useEffect(() => {
     if (token) {
       cargarPacientes();
-    }  
+    }
   }, [token]);
 
-// MODAL CREAR
+  // MODAL CREAR
 
   const abrirModalForm = () => {
     setModoEdicion(false);
@@ -68,11 +68,12 @@ const PacientesAdmin = () => {
       email: "",
       phone: "",
       cuilCuit: "",
+      clinicalNotes: "",
     });
     setModalFormAbierto(true);
   };
 
-   // MODAL EDITAR
+  // MODAL EDITAR
 
   const abrirModalEditar = (paciente) => {
     setModoEdicion(true);
@@ -85,14 +86,15 @@ const PacientesAdmin = () => {
       email: paciente.person?.email || "",
       phone: paciente.person?.phone || "",
       cuilCuit: paciente.cuilCuit || "",
+      clinicalNotes: paciente.clinicalNotes || "",
     });
 
     setModalFormAbierto(true);
   };
 
-   // GUARDAR
+  // GUARDAR
 
-   const guardarPaciente = async (e) => {
+  const guardarPaciente = async (e) => {
     e.preventDefault();
 
     setErrorForm("");
@@ -104,11 +106,7 @@ const PacientesAdmin = () => {
       };
 
       if (modoEdicion) {
-        await actualizarPaciente(
-          pacienteEditandoId,
-          payload,
-          token
-        );
+        await actualizarPaciente(pacienteEditandoId, payload, token);
       } else {
         await crearPaciente(payload, token);
       }
@@ -146,20 +144,12 @@ const PacientesAdmin = () => {
           marginBottom: "20px",
         }}
       >
-      <h2 style={{ color: "#6b21a8" }}>
-        Gestión de Pacientes
-      </h2>
+        <h2 style={{ color: "#6b21a8" }}>Gestión de Pacientes</h2>
 
-      <Button onClick={abrirModalForm}>
-          + Nuevo Paciente
-        </Button>
-    </div>
+        <Button onClick={abrirModalForm}>+ Nuevo Paciente</Button>
+      </div>
 
-      {error && (
-        <p style={{ color: "red" }}>
-          {error}
-        </p>
-      )}
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
       <Table
         headers={[
@@ -178,8 +168,7 @@ const PacientesAdmin = () => {
             </Td>
 
             <Td>
-              {p.person?.documentType}{" "}
-              {p.person?.document}
+              {p.person?.documentType} {p.person?.document}
             </Td>
 
             <Td>{p.person?.email}</Td>
@@ -202,9 +191,7 @@ const PacientesAdmin = () => {
                     fontSize: "12px",
                     backgroundColor: "#64748b",
                   }}
-                  onClick={() =>
-                    abrirModalEditar(p)
-                  }
+                  onClick={() => abrirModalEditar(p)}
                 >
                   Editar
                 </Button>
@@ -218,14 +205,8 @@ const PacientesAdmin = () => {
 
       <Modal
         isOpen={modalFormAbierto}
-        onClose={() =>
-          setModalFormAbierto(false)
-        }
-        title={
-          modoEdicion
-            ? "Editar Paciente"
-            : "Crear Nuevo Paciente"
-        }
+        onClose={() => setModalFormAbierto(false)}
+        title={modoEdicion ? "Editar Paciente" : "Crear Nuevo Paciente"}
       >
         {errorForm && (
           <p
@@ -340,6 +321,14 @@ const PacientesAdmin = () => {
               })
             }
           />
+          <Input
+                type="text"
+                placeholder="Notas clínicas"
+                value={formData.clinicalNotes}
+                onChange={(e) =>
+                  setFormData({ ...formData, clinicalNotes: e.target.value })
+                }
+              />
 
           <div
             style={{
@@ -355,20 +344,14 @@ const PacientesAdmin = () => {
                 backgroundColor: "#e2e8f0",
                 color: "#475569",
               }}
-              onClick={() =>
-                setModalFormAbierto(false)
-              }
+              onClick={() => setModalFormAbierto(false)}
             >
+            
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              disabled={cargandoForm}
-            >
-              {cargandoForm
-                ? "Guardando..."
-                : "Guardar Paciente"}
+            <Button type="submit" disabled={cargandoForm}>
+              {cargandoForm ? "Guardando..." : "Guardar Paciente"}
             </Button>
           </div>
         </form>
