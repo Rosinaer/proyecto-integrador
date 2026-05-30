@@ -5,6 +5,7 @@ import { Modal } from "../../components/ui/Modal";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { useAuth } from "../../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 import {
   obtenerPacientes,
@@ -36,6 +37,7 @@ const PacientesAdmin = () => {
   const [cargandoForm, setCargandoForm] = useState(false);
 
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const cargarPacientes = async () => {
     try {
@@ -164,7 +166,12 @@ const PacientesAdmin = () => {
         {pacientes.map((p) => (
           <Tr key={p.id}>
             <Td>
+              <span
+                style={{ color: "#6b21a8", cursor: "pointer" }}
+                onClick={() => navigate(`/admin/pacientes/${p.id}`)}
+              >
               <strong>{p.person?.name}</strong>
+              </span>
             </Td>
 
             <Td>
@@ -322,13 +329,13 @@ const PacientesAdmin = () => {
             }
           />
           <Input
-                type="text"
-                placeholder="Notas clínicas"
-                value={formData.clinicalNotes}
-                onChange={(e) =>
-                  setFormData({ ...formData, clinicalNotes: e.target.value })
-                }
-              />
+            type="text"
+            placeholder="Notas clínicas"
+            value={formData.clinicalNotes}
+            onChange={(e) =>
+              setFormData({ ...formData, clinicalNotes: e.target.value })
+            }
+          />
 
           <div
             style={{
@@ -346,7 +353,6 @@ const PacientesAdmin = () => {
               }}
               onClick={() => setModalFormAbierto(false)}
             >
-            
               Cancelar
             </Button>
 
