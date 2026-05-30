@@ -10,6 +10,7 @@ import {
   desactivarServicio,
   crearProfessionalService,
   actualizarProfessionalService,
+  obtenerServiciosPorProfesional,
 } from "../controllers/services.controller.js";
 import verificarToken from "../middleware/verificarToken.js";
 import authorize from "../middleware/autorizarRoles.js";
@@ -37,6 +38,14 @@ router.patch(
 );
 
 // Professional services
+
+router.get(
+  "/professional-services/by-professional/:professionalId",
+  verificarToken,
+  authorize(["ADMIN", "PROFESSIONAL"]),
+  obtenerServiciosPorProfesional,
+);
+
 router.post(
   "/professional-services",
   verificarToken,
@@ -71,5 +80,7 @@ router.patch(
   authorize(["ADMIN"]),
   desactivarServicio,
 );
+
+
 
 export default router;
