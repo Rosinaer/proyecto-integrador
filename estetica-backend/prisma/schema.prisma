@@ -141,6 +141,8 @@ model Patient {
   cuilCuit     String   @map("cuil_cuit")
   createdAt    DateTime @default(now()) @map("created_at")
 
+  clinicalNotes String?      @map("clinical_notes")
+
   person       People   @relation(fields: [peopleId], references: [id], onDelete: Cascade)
   appointments Appointment[]
 
@@ -163,6 +165,9 @@ model Service {
   name                   String
   defaultDurationMinutes Int       @map("default_duration_minutes")
   active                 Boolean   @default(true)
+
+  requiresPreConsult     Boolean             @default(false) @map("requires_pre_consult")
+  reminderNote           String?             @map("reminder_note")
 
   category               ServiceCategory @relation(fields: [categoryId], references: [id])
   professionalServices   ProfessionalService[]

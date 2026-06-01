@@ -123,7 +123,7 @@ export const obtenerServicioPorId = async (req, res) => {
 
 export const crearServicio = async (req, res) => {
   try {
-    const { name, categoryId, defaultDurationMinutes } = req.body;
+    const { name, categoryId, defaultDurationMinutes, requiresPreConsult, reminderNote } = req.body;
 
     if (!name || !categoryId || !defaultDurationMinutes) {
       return res.status(400).json({
@@ -142,6 +142,8 @@ export const crearServicio = async (req, res) => {
         name,
         categoryId,
         defaultDurationMinutes: Number(defaultDurationMinutes),
+        requiresPreConsult: requiresPreConsult === true || requiresPreConsult === 'true',
+        reminderNote: reminderNote || null,
       },
       include: { category: true },
     });
@@ -160,7 +162,7 @@ export const crearServicio = async (req, res) => {
 export const actualizarServicio = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, defaultDurationMinutes, active } = req.body;
+    const { name, categoryId, defaultDurationMinutes, active, requiresPreConsult, reminderNote } = req.body;
 
     if (
       defaultDurationMinutes !== undefined &&
@@ -180,6 +182,10 @@ export const actualizarServicio = async (req, res) => {
           defaultDurationMinutes: Number(defaultDurationMinutes),
         }),
         ...(active !== undefined && { active }),
+        ...(requiresPreConsult !== undefined && { 
+          requiresPreConsult: requiresPreConsult === true || requiresPreConsult === 'true' 
+        }),
+        ...(reminderNote !== undefined && { reminderNote }),
       },
       include: { category: true },
     });

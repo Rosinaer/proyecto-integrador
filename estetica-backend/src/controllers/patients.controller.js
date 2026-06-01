@@ -47,7 +47,7 @@ export const obtenerPacientePorId = async (req, res) => {
 
 export const crearPaciente = async (req, res) => {
   try {
-    const { name, documentType, document, email, phone, cuilCuit } = req.body;
+    const { name, documentType, document, email, phone, cuilCuit, clinicalNotes } = req.body;
 
     if (!name || !documentType || !document || !email || !phone) {
       return res.status(400).json({
@@ -81,6 +81,7 @@ export const crearPaciente = async (req, res) => {
         data: {
           peopleId: personaExistente.id,
           cuilCuit: cuilCuit ?? "",
+          clinicalNotes: clinicalNotes ?? "",
         },
         include: { person: true },
       });
@@ -97,6 +98,7 @@ export const crearPaciente = async (req, res) => {
         data: {
           peopleId: persona.id,
           cuilCuit: cuilCuit ?? "",
+          clinicalNotes: clinicalNotes || null,
         },
         include: { person: true },
       });
@@ -118,7 +120,7 @@ export const crearPaciente = async (req, res) => {
 export const actualizarPaciente = async (req, res) => {
   try {
     const { id } = req.params;
-    const { cuilCuit, name, phone, document, documentType } = req.body;
+    const { cuilCuit, name, phone, document, documentType, clinicalNotes } = req.body;
 
     const paciente = await prisma.patient.findUnique({
       where: { id },
@@ -155,10 +157,13 @@ export const actualizarPaciente = async (req, res) => {
         });
       }
 
-      if (cuilCuit !== undefined) {
+      if (cuilCuit !== undefined  || clinicalNotes !== undefined) {
         await tx.patient.update({
           where: { id },
-          data: { cuilCuit },
+          data: {
+            ...(cuilCuit !== undefined && { cuilCuit }),
+            ...(clinicalNotes !== undefined && { clinicalNotes }),
+          },
         });
       }
 
