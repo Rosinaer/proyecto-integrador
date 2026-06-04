@@ -68,9 +68,14 @@ app.use((err, req, res, next) => {
 // --- SERVIDOR ---
 const PORT = process.env.PORT || 3000;
 
+//  QA: Solo levantamos el puerto y los crons si NO estamos corriendo tests
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
+  });
+  
+  iniciarRecordatorios();
+}
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
-
-iniciarRecordatorios();
+// Exportamos la app para que Supertest pueda hacer sus simulaciones
+export default app;

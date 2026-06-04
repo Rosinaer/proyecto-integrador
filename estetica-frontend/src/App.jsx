@@ -22,8 +22,13 @@ import FichaPacienteAdmin from "./pages/admin/FichaPacienteAdmin";
 import CategoriaServiciosAdmin from "./pages/admin/CategoriaServiciosAdmin";
 import ProfessionalServicesAdmin from "./pages/admin/ProfessionalServicesAdmin";
 
+<<<<<<< HEAD
 // Páginas de Paciente
 //mport PacienteDashboard from "./pages/paciente/Dashboard";
+=======
+// Páginas de Paciente (Comentado temporalmente por QA)
+// import PacienteDashboard from "./pages/paciente/Dashboard";
+>>>>>>> 39c87b2f12afc7b95eea1ed3463416b9c938ca50
 
 function App() {
   return (
@@ -59,7 +64,23 @@ function App() {
           <Route path="categorias" element={<CategoriaServiciosAdmin />} />
           <Route path="servicios-profesional" element={<ProfessionalServicesAdmin />} />
         </Route>
+<<<<<<< HEAD
         
+=======
+
+        {/* --- RUTAS DE PACIENTE (Comentadas temporalmente por QA) --- */}
+        {/* 
+        <Route
+          path="/paciente"
+          element={
+            <ProtectedRoute rolesPermitidos={["PATIENT"]}>
+              <PacienteDashboard />
+            </ProtectedRoute>
+          }
+        /> 
+        */}
+
+>>>>>>> 39c87b2f12afc7b95eea1ed3463416b9c938ca50
       </Routes>
     </BrowserRouter>
   );

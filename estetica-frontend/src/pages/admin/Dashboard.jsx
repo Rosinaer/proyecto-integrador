@@ -252,12 +252,12 @@ const Dashboard = () => {
             </div>
             
             <div style={styles.modalBody}>
-              <p style={{ margin: '4px 0' }}><strong>📅 Fecha y Hora:</strong> {turnoSeleccionado.fecha} - {turnoSeleccionado.hora} hs</p>
-              <p style={{ margin: '4px 0' }}><strong>👤 Paciente:</strong> {turnoSeleccionado.paciente}</p>
-              <p style={{ margin: '4px 0' }}><strong>📞 Contacto:</strong> {turnoSeleccionado.telefono}</p>
-              <p style={{ margin: '4px 0' }}><strong>✉️ Correo:</strong> {turnoSeleccionado.email}</p>
-              <p style={{ margin: '4px 0' }}><strong>✨ Servicio:</strong> {turnoSeleccionado.servicio}</p>
-              <p style={{ margin: '4px 0' }}><strong>💡 Profesional:</strong> {turnoSeleccionado.professional?.nombre}</p>
+              <p style={{ margin: '4px 0' }}><strong> Fecha y Hora:</strong> {turnoSeleccionado.fecha} - {turnoSeleccionado.hora} hs</p>
+              <p style={{ margin: '4px 0' }}><strong> Paciente:</strong> {turnoSeleccionado.paciente}</p>
+              <p style={{ margin: '4px 0' }}><strong> Contacto:</strong> {turnoSeleccionado.telefono}</p>
+              <p style={{ margin: '4px 0' }}><strong> Correo:</strong> {turnoSeleccionado.email}</p>
+              <p style={{ margin: '4px 0' }}><strong> Servicio:</strong> {turnoSeleccionado.servicio}</p>
+              <p style={{ margin: '4px 0' }}><strong> Profesional:</strong> {turnoSeleccionado.professional?.nombre}</p>
               <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #6b21a8' }}>
                 <strong>📝 Notas del Administrador:</strong>
                 <p style={{ margin: '5px 0 0 0', color: '#475569', fontSize: '0.9rem' }}>{turnoSeleccionado.notes || turnoSeleccionado.notas}</p>
