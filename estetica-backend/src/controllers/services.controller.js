@@ -4,6 +4,7 @@ import prisma from '../config/prisma.js';
 
 export const obtenerCategorias = async (req, res) => {
   try {
+    console.log("🚀 LLEGÓ LA PETICIÓN A OBTENER CATEGORIAS");
     const categorias = await prisma.serviceCategory.findMany({
       orderBy: { displayOrder: "asc" },
       include: {
@@ -16,7 +17,8 @@ export const obtenerCategorias = async (req, res) => {
 
     res.json(categorias);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en obtenerCategorias:", error);
+    res.status(500).json({ error: 'Error interno del servidor al obtener categorías' });
   }
 };
 
@@ -44,7 +46,8 @@ export const crearCategoria = async (req, res) => {
         .status(409)
         .json({ mensaje: "Ya existe una categoría con ese nombre" });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en crearCategoria:", error);
+    res.status(500).json({ error: 'Error interno del servidor al crear categoría' });
   }
 };
 
@@ -73,7 +76,8 @@ export const actualizarCategoria = async (req, res) => {
         .status(409)
         .json({ mensaje: "Ya existe una categoría con ese nombre" });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en actualizarCategoria:", error);
+    res.status(500).json({ error: 'Error interno del servidor al actualizar categoría' });
   }
 };
 
@@ -81,17 +85,19 @@ export const actualizarCategoria = async (req, res) => {
 
 export const obtenerServicios = async (req, res) => {
   try {
+    console.log("🚀 LLEGÓ LA PETICIÓN A OBTENER SERVICIOS");
     const { active } = req.query;
 
     const servicios = await prisma.service.findMany({
-      where: active !== undefined ? { active: active === "true" } : undefined,
+      where: active !== undefined ? { active: active === "true" } : {},
       include: { category: true },
       orderBy: [{ category: { displayOrder: "asc" } }, { name: "asc" }],
     });
 
     res.json(servicios);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en obtenerServicios:", error);
+    res.status(500).json({ error: 'Error interno del servidor al obtener servicios' });
   }
 };
 
@@ -117,7 +123,8 @@ export const obtenerServicioPorId = async (req, res) => {
 
     res.json(servicio);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en obtenerServicioPorId:", error);
+    res.status(500).json({ error: 'Error interno del servidor al obtener el servicio' });
   }
 };
 
@@ -155,7 +162,8 @@ export const crearServicio = async (req, res) => {
         .status(400)
         .json({ mensaje: "La categoría indicada no existe" });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en crearServicio:", error);
+    res.status(500).json({ error: 'Error interno del servidor al crear el servicio' });
   }
 };
 
@@ -200,7 +208,8 @@ export const actualizarServicio = async (req, res) => {
         .status(400)
         .json({ mensaje: "La categoría indicada no existe" });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en actualizarServicio:", error);
+    res.status(500).json({ error: 'Error interno del servidor al actualizar el servicio' });
   }
 };
 
@@ -219,7 +228,8 @@ export const desactivarServicio = async (req, res) => {
     if (error.code === "P2025") {
       return res.status(404).json({ mensaje: "Servicio no encontrado" });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en desactivarServicio:", error);
+    res.status(500).json({ error: 'Error interno del servidor al desactivar el servicio' });
   }
 };
 
@@ -285,7 +295,8 @@ export const crearProfessionalService = async (req, res) => {
         mensaje: "El profesional o servicio indicado no existe",
       });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en crearProfessionalService:", error);
+    res.status(500).json({ error: 'Error interno del servidor al asignar servicio al profesional' });
   }
 };
 
@@ -334,7 +345,8 @@ export const actualizarProfessionalService = async (req, res) => {
         .status(404)
         .json({ mensaje: "Configuración profesional-servicio no encontrada" });
     }
-    res.status(500).json({ error: error.message });
+    console.error("Error en actualizarProfessionalService:", error);
+    res.status(500).json({ error: 'Error interno del servidor al actualizar configuración' });
   }
 };
 
@@ -352,6 +364,7 @@ export const obtenerServiciosPorProfesional = async (req, res) => {
 
     res.json(servicios);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en obtenerServiciosPorProfesional:", error);
+    res.status(500).json({ error: 'Error interno del servidor al obtener servicios por profesional' });
   }
 };

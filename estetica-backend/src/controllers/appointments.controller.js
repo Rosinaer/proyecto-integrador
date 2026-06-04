@@ -109,8 +109,9 @@ export const obtenerHorariosDisponibles = async (req, res) => {
       slots,
     });
   } catch (error) {
+    console.error("Error en obtenerHorariosDisponibles:", error);
     res.status(500).json({
-      error: error.message
+      error: 'Error interno del servidor al calcular horarios'
     });
   }
 };
@@ -173,8 +174,9 @@ export const obtenerTurnos = async (req, res) => {
 
     res.json(turnos);
   } catch (error) {
+    console.error("Error en obtenerTurnos:", error);
     res.status(500).json({
-      error: error.message
+      error: 'Error interno del servidor al obtener los turnos'
     });
   }
 };
@@ -219,8 +221,9 @@ export const obtenerTurnoPorId = async (req, res) => {
 
     res.json(turno);
   } catch (error) {
+    console.error("Error en obtenerTurnoPorId:", error);
     res.status(500).json({
-      error: error.message
+      error: 'Error interno del servidor al obtener el turno'
     });
   }
 };
@@ -308,7 +311,7 @@ export const crearTurno = async (req, res) => {
           professionalServiceId,
           availabilityId,
           patientId,
-          createdByUserId: req.usuario.id,
+          createdByUserId: req.user.id, // 🔥 Corregido a req.user.id
           startsAt: start,
           endsAt,
           priceSnapshot: professionalService.price,
@@ -339,7 +342,7 @@ export const crearTurno = async (req, res) => {
           action: 'CREATE',
           prevStatus: null,
           newStatus: 'PENDING',
-          performedBy: req.usuario.id,
+          performedBy: req.user.id, // 🔥 Corregido a req.user.id
         },
       });
 
@@ -348,8 +351,9 @@ export const crearTurno = async (req, res) => {
 
     res.status(201).json(turno);
   } catch (error) {
+    console.error("Error en crearTurno:", error);
     res.status(500).json({
-      error: error.message
+      error: 'Error interno del servidor al crear el turno'
     });
   }
 };
@@ -413,7 +417,7 @@ export const cambiarEstadoTurno = async (req, res) => {
           action: status === 'CANCELLED' ? 'CANCEL' : 'UPDATE',
           prevStatus: turno.status,
           newStatus: status,
-          performedBy: req.usuario.id,
+          performedBy: req.user.id, // 🔥 Corregido a req.user.id
         },
       });
 
@@ -422,8 +426,9 @@ export const cambiarEstadoTurno = async (req, res) => {
 
     res.json(resultado);
   } catch (error) {
+    console.error("Error en cambiarEstadoTurno:", error);
     res.status(500).json({
-      error: error.message
+      error: 'Error interno del servidor al actualizar el estado'
     });
   }
 };
