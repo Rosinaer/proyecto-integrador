@@ -59,7 +59,6 @@ const ProfesionalesAdmin = () => {
   const abrirModalEditar = (p) => {
     setModoEdicion(true);
     setProfesionalEditandoId(p.id);
-    // Cargamos los datos buscando en todas las rutas posibles del objeto
     setFormData({ 
       nombre: p.nombre || p.name || p.person?.name || p.user?.person?.name || "", 
       especialidad: p.especialidad || p.specialty || "", 
@@ -120,7 +119,6 @@ const ProfesionalesAdmin = () => {
 
       <Table headers={["Nombre", "Especialidad", "Contacto", "Acciones"]}>
         {profesionales.map((p) => {
-          // Lógica para extraer datos anidados
           const nombre = p.nombre || p.name || p.person?.name || p.user?.person?.name || "Sin nombre";
           const email = p.email || p.person?.email || p.user?.person?.email || "Sin email";
           const especialidad = p.especialidad || p.specialty || "General";
@@ -147,20 +145,18 @@ const ProfesionalesAdmin = () => {
         })}
       </Table>
 
-      {/* MODAL FORMULARIO */}
       <Modal isOpen={modalFormAbierto} onClose={() => setModalFormAbierto(false)} title={modoEdicion ? "Editar Profesional" : "Crear Nuevo Profesional"}>
-        <form onSubmit={manejarGuardado} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <Input type="text" placeholder="Nombre completo" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} required />
-          <Input type="text" placeholder="Especialidad" value={formData.especialidad} onChange={(e) => setFormData({...formData, especialidad: e.target.value})} required />
-          <Input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
-          <Input type="text" placeholder="Teléfono" value={formData.telefono} onChange={(e) => setFormData({...formData, telefono: e.target.value})} />
+        <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <Input type="text" placeholder="Nombre completo" autoComplete="off" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} required />
+          <Input type="text" placeholder="Especialidad" autoComplete="off" value={formData.especialidad} onChange={(e) => setFormData({...formData, especialidad: e.target.value})} required />
+          <Input type="email" placeholder="Email" autoComplete="new-email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+          <Input type="text" placeholder="Teléfono" autoComplete="off" value={formData.telefono} onChange={(e) => setFormData({...formData, telefono: e.target.value})} />
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <Button type="submit">{cargandoForm ? "Guardando..." : "Guardar"}</Button>
           </div>
         </form>
       </Modal>
 
-      {/* MODAL ELIMINAR */}
       <Modal isOpen={modalEliminarAbierto} onClose={() => setModalEliminarAbierto(false)} title="Confirmar">
         <p>¿Eliminar a {profesionalSeleccionado?.nombre || profesionalSeleccionado?.person?.name}?</p>
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>

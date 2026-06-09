@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom"; // <-- Agregamos Link acá
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
@@ -25,13 +25,24 @@ const Login = () => {
         body: JSON.stringify({ email, password }),
       });
 
-      const datos = await respuesta.json();
+      // Si el status es 429 (Rate Limit), forzamos el mensaje de bloqueo directamente
+      if (respuesta.status === 429) {
+        throw new Error("Has superado el límite de 5 intentos fallidos. Por seguridad, esperá 1 hora antes de volver a intentar.");
+      }
+
+      // Intentamos leer la respuesta como JSON de forma segura
+      let datos;
+      try {
+        datos = await respuesta.json();
+      } catch (parseError) {
+        datos = {}; // Si el servidor no devolvió JSON válido, evitamos que explote
+      }
 
       if (!respuesta.ok) {
         throw new Error(datos.message || datos.mensaje || "Error al iniciar sesión. Revisá tus credenciales.");
       }
 
-      // Guardamos la info usando data.user
+      // Guardamos la info en el estado global
       login({ token: datos.token, user: datos.user });
 
       // Redirigimos según el rol
@@ -59,7 +70,8 @@ const Login = () => {
     <div className="container" style={{ maxWidth: '400px', marginTop: '10vh' }}>
       <h2>Ingreso al Sistema</h2>
       
-      {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
+      {/* Mensaje de error centralizado */}
+      {error && <p style={{ color: '#d32f2f', textAlign: 'center', fontWeight: 'bold' }}>{error}</p>}
 
       <form onSubmit={manejarIngreso} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <Input 
@@ -81,7 +93,6 @@ const Login = () => {
         <Button type="submit">Ingresar</Button>
       </form>
 
-      {/* --- ACÁ AGREGAMOS EL LINK DE RECUPERACIÓN --- */}
       <div style={{ textAlign: 'center', marginTop: '20px' }}>
         <Link 
           to="/forgot-password" 
@@ -90,7 +101,6 @@ const Login = () => {
           ¿Olvidaste tu contraseña?
         </Link>
       </div>
-
     </div>
   );
 };

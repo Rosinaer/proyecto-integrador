@@ -10,7 +10,8 @@ const UsuariosAdmin = () => {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
   
-  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
+  // Cambiamos el estado de "Eliminar" a "Cambio de Estado"
+  const [modalEstadoAbierto, setModalEstadoAbierto] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
 
   const [modalFormAbierto, setModalFormAbierto] = useState(false);
@@ -89,14 +90,26 @@ const UsuariosAdmin = () => {
     }
   };
 
-  const ejecutarEliminacion = async () => {
+  // Función que abre el modal para activar/desactivar
+  const confirmarCambioEstado = (u) => {
+    setUsuarioSeleccionado(u);
+    setModalEstadoAbierto(true);
+  };
+
+  // Función que le pega a los endpoints correctos de desactivación/activación (PATCH)
+  const ejecutarCambioEstado = async () => {
     try {
-      const respuesta = await fetch(`${apiUrl}/users/${usuarioSeleccionado.id}`, {
-        method: 'DELETE',
+      const estaActivo = usuarioSeleccionado.active || usuarioSeleccionado.activo;
+      const endpoint = estaActivo ? "deactivate" : "activate";
+      
+      const respuesta = await fetch(`${apiUrl}/users/${usuarioSeleccionado.id}/${endpoint}`, {
+        method: 'PATCH',
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!respuesta.ok) throw new Error("No se pudo eliminar");
-      setModalEliminarAbierto(false);
+      
+      if (!respuesta.ok) throw new Error(`No se pudo ${estaActivo ? "desactivar" : "activar"} al usuario`);
+      
+      setModalEstadoAbierto(false);
       obtenerUsuarios();
     } catch (err) {
       alert(err.message);
@@ -113,41 +126,57 @@ const UsuariosAdmin = () => {
       </div>
 
       <Table headers={["Nombre", "Email", "Rol", "Estado", "Acciones"]}>
-        {usuarios.map((u) => (
-          <Tr key={u.id}>
-            <Td>{u.nombre || u.person?.name || u.name}</Td>
-            <Td>{u.email || u.person?.email}</Td>
-            <Td>
-              <span style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#6b21a815', color: '#6b21a8' }}>
-                {u.rol || u.role}
-              </span>
-            </Td>
-            <Td>
-              <span style={{ color: u.active || u.activo ? '#16a34a' : '#d32f2f', fontWeight: 'bold' }}>
-                {u.active || u.activo ? '● Activo' : '○ Inactivo'}
-              </span>
-            </Td>
-            <Td>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                <Button style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#64748b' }} onClick={() => abrirModalEditar(u)}>Editar</Button>
-                <Button variant="danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => confirmarEliminacion(u)}>Eliminar</Button>
-              </div>
-            </Td>
-          </Tr>
-        ))}
+        {usuarios.map((u) => {
+          const estaActivo = u.active || u.activo;
+          
+          return (
+            <Tr key={u.id}>
+              <Td>{u.nombre || u.person?.name || u.name}</Td>
+              <Td>{u.email || u.person?.email}</Td>
+              <Td>
+                <span style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#6b21a815', color: '#6b21a8' }}>
+                  {u.rol || u.role}
+                </span>
+              </Td>
+              <Td>
+                <span style={{ color: estaActivo ? '#16a34a' : '#d32f2f', fontWeight: 'bold' }}>
+                  {estaActivo ? '● Activo' : '○ Inactivo'}
+                </span>
+              </Td>
+              <Td>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <Button style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#64748b' }} onClick={() => abrirModalEditar(u)}>Editar</Button>
+                  
+                  {/* Botón dinámico: Desactivar o Activar */}
+                  <Button 
+                    variant={estaActivo ? "danger" : "primary"} 
+                    style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: estaActivo ? '#d32f2f' : '#16a34a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }} 
+                    onClick={() => confirmarCambioEstado(u)}
+                  >
+                    {estaActivo ? "Desactivar" : "Activar"}
+                  </Button>
+                </div>
+              </Td>
+            </Tr>
+          );
+        })}
       </Table>
 
       <Modal isOpen={modalFormAbierto} onClose={() => setModalFormAbierto(false)} title={modoEdicion ? "Editar Usuario" : "Crear Nuevo Usuario"}>
-        <form onSubmit={manejarGuardado} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <Input type="text" placeholder="Nombre completo" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} required />
-          <Input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
-          <Input type="password" placeholder={modoEdicion ? "Contraseña (dejar vacío para no cambiar)" : "Contraseña"} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!modoEdicion} />
+        {/* Agregamos autoComplete="off" al formulario para bloquear las sugerencias de Chrome */}
+        <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          <Input type="text" placeholder="Nombre completo" autoComplete="off" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} required />
+          <Input type="email" placeholder="Email" autoComplete="new-email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+          <Input type="password" placeholder={modoEdicion ? "Contraseña (dejar vacío para no cambiar)" : "Contraseña"} autoComplete="new-password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!modoEdicion} />
+          
           <select value={formData.rol} onChange={(e) => setFormData({...formData, rol: e.target.value})} style={{ padding: '10px', borderRadius: '5px', border: '1px solid #cbd5e1' }}>
             <option value="RECEPTIONIST">Recepcionista</option>
             <option value="ADMIN">Administrador</option>
             <option value="PROFESSIONAL">Profesional</option>
             <option value="PATIENT">Paciente</option>
           </select>
+
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <Button type="button" style={{ backgroundColor: '#e2e8f0', color: '#475569' }} onClick={() => setModalFormAbierto(false)}>Cancelar</Button>
             <Button type="submit">{cargandoForm ? "Guardando..." : "Guardar"}</Button>
@@ -155,10 +184,13 @@ const UsuariosAdmin = () => {
         </form>
       </Modal>
 
-      <Modal isOpen={modalEliminarAbierto} onClose={() => setModalEliminarAbierto(false)} title="Confirmar">
-        <p>¿Eliminar a {usuarioSeleccionado?.nombre || usuarioSeleccionado?.person?.name}?</p>
+      <Modal isOpen={modalEstadoAbierto} onClose={() => setModalEstadoAbierto(false)} title="Confirmar Acción">
+        <p>¿Seguro que deseas {usuarioSeleccionado?.active || usuarioSeleccionado?.activo ? "desactivar" : "activar"} a {usuarioSeleccionado?.nombre || usuarioSeleccionado?.person?.name}?</p>
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-          <Button variant="danger" onClick={ejecutarEliminacion}>Sí, eliminar</Button>
+          <Button type="button" style={{ backgroundColor: '#e2e8f0', color: '#475569' }} onClick={() => setModalEstadoAbierto(false)}>Cancelar</Button>
+          <Button variant={usuarioSeleccionado?.active || usuarioSeleccionado?.activo ? "danger" : "primary"} onClick={ejecutarCambioEstado}>
+            Sí, {usuarioSeleccionado?.active || usuarioSeleccionado?.activo ? "desactivar" : "activar"}
+          </Button>
         </div>
       </Modal>
     </div>
