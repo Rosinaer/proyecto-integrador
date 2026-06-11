@@ -65,6 +65,14 @@ export const actualizarCategoria = async (id, data, token) => {
 
 // PROFESSIONAL SERVICES
 
+export const obtenerServiciosDeProfesional = async (professionalId, token) => {
+  const res = await axios.get(
+    `${API}/professional-services/by-professional/${professionalId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return res.data;
+};
+
 export const crearProfessionalService = async (data, token) => {
   const res = await axios.post(`${API}/professional-services`, data, {
     headers: { Authorization: `Bearer ${token}` },
@@ -78,4 +86,3 @@ export const actualizarProfessionalService = async (id, data, token) => {
   });
   return res.data;
 };
-

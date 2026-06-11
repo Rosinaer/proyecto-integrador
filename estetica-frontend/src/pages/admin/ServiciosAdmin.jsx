@@ -43,12 +43,19 @@ const ServiciosAdmin = () => {
 
   const { token } = useAuth();
 
+  // Activos primero, luego inactivos; alfabético dentro de cada grupo (mismo patrón que Profesionales/Usuarios)
+  const ordenarPorEstado = (lista) =>
+    [...lista].sort((a, b) => {
+      if (Boolean(a.active) !== Boolean(b.active)) return a.active ? -1 : 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
   // Obtener servicios
 
   const cargarServicios = async () => {
     try {
       const data = await obtenerServicios(token);
-      setServicios(data);
+      setServicios(ordenarPorEstado(data));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -159,6 +166,16 @@ const ServiciosAdmin = () => {
     }
   };
 
+  // REACTIVAR
+  const reactivarServicio = async (servicio) => {
+    try {
+      await actualizarServicio(servicio.id, { active: true }, token);
+      cargarServicios();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   if (cargando) {
     return (
       <p style={{ textAlign: "center", marginTop: "50px" }}>
@@ -187,7 +204,10 @@ const ServiciosAdmin = () => {
         headers={["Servicio", "Categoría", "Duración", "Estado", "Acciones"]}
       >
         {servicios.map((s) => (
-          <Tr key={s.id}>
+          <Tr
+            key={s.id}
+            style={!s.active ? { backgroundColor: "#f1f5f9", color: "#94a3b8" } : undefined}
+          >
             <Td>
               <strong>{s.name}</strong>
             </Td>
@@ -196,7 +216,11 @@ const ServiciosAdmin = () => {
 
             <Td>{s.defaultDurationMinutes} min</Td>
 
-            <Td>{s.active ? "Activo" : "Inactivo"}</Td>
+            <Td>
+              <span style={{ color: s.active ? "#16a34a" : "#d32f2f", fontWeight: "bold" }}>
+                {s.active ? "● Activo" : "○ Inactivo"}
+              </span>
+            </Td>
 
             <Td>
               <div
@@ -206,27 +230,43 @@ const ServiciosAdmin = () => {
                   justifyContent: "center",
                 }}
               >
-                <Button
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: "12px",
-                    backgroundColor: "#64748b",
-                  }}
-                  onClick={() => abrirModalEditar(s)}
-                >
-                  Editar
-                </Button>
+                {s.active ? (
+                  <>
+                    <Button
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        backgroundColor: "#64748b",
+                      }}
+                      onClick={() => abrirModalEditar(s)}
+                    >
+                      Editar
+                    </Button>
 
-                <Button
-                  variant="danger"
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: "12px",
-                  }}
-                  onClick={() => confirmarEliminacion(s)}
-                >
-                  Desactivar
-                </Button>
+                    <Button
+                      variant="danger"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                      }}
+                      onClick={() => confirmarEliminacion(s)}
+                    >
+                      Desactivar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      backgroundColor: "#16a34a",
+                      color: "#fff",
+                    }}
+                    onClick={() => reactivarServicio(s)}
+                  >
+                    Reactivar
+                  </Button>
+                )}
               </div>
             </Td>
           </Tr>

@@ -88,6 +88,8 @@ export const revertirDisponibilidad = async (req, res) => {
     const inicioMes = new Date(year, month - 1, 1);
     const finMes    = new Date(year, month, 0);
 
+    // Solo se eliminan los slots SIN ningún turno asociado (de cualquier estado).
+    // Un slot con turnos no puede borrarse por la relación con Appointment.
     const resultado = await prisma.availability.deleteMany({
       where: {
         professionalId: id,
@@ -141,8 +143,11 @@ export const crearSlotManual = async (req, res) => {
       return res.status(400).json({ mensaje: 'date, startTime y endTime son obligatorios' });
     }
 
-    const start = new Date(`1970-01-01T${startTime}`);
-    const end   = new Date(`1970-01-01T${endTime}`);
+    // Parseamos las horas en UTC (sufijo Z) para que coincidan con cómo se
+    // guardan los horarios recurrentes y cómo las lee el frontend. Sin la Z se
+    // interpretaban en hora local del servidor y el slot quedaba corrido.
+    const start = new Date(`1970-01-01T${startTime}:00Z`);
+    const end   = new Date(`1970-01-01T${endTime}:00Z`);
 
     if (end <= start) {
       return res.status(400).json({ mensaje: 'endTime debe ser posterior a startTime' });
@@ -157,15 +162,18 @@ export const crearSlotManual = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
     }
 
-    // Verificamos que no exista ya un slot para esa fecha
-    const existe = await prisma.availability.findFirst({
+    // Se permiten varios slots por día siempre que NO se superpongan en horario.
+    // (Antes se bloqueaba cualquier slot existente en la fecha, lo que impedía
+    // cargar un rango posterior que no se pisaba con el ya creado.)
+    const slotsDelDia = await prisma.availability.findMany({
       where: { professionalId: id, date: new Date(date) },
     });
 
-    if (existe) {
-      return res.status(409).json({ 
-        mensaje: 'Ya existe un slot para esa fecha. Usá PATCH para modificarlo.',
-        id: existe.id,
+    const seSuperpone = slotsDelDia.find((s) => start < s.endTime && end > s.startTime);
+    if (seSuperpone) {
+      return res.status(409).json({
+        mensaje: 'Ese horario se superpone con un slot ya existente en esa fecha. Editá el slot existente o elegí un rango que no se pise.',
+        id: seSuperpone.id,
       });
     }
 
@@ -189,7 +197,10 @@ export const actualizarSlot = async (req, res) => {
     const { availabilityId } = req.params;
     const { startTime, endTime, active } = req.body;
 
-    const slot = await prisma.availability.findUnique({ where: { id: availabilityId } });
+    const slot = await prisma.availability.findUnique({
+      where: { id: availabilityId },
+      include: { appointments: { select: { id: true } } },
+    });
     if (!slot) {
       return res.status(404).json({ mensaje: 'Slot de disponibilidad no encontrado' });
     }
@@ -198,9 +209,17 @@ export const actualizarSlot = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
     }
 
+    // No se puede modificar el horario de un slot que ya tiene turnos asociados:
+    // cambiaría el rango bajo turnos ya reservados.
+    if (slot.appointments.length > 0) {
+      return res.status(409).json({
+        mensaje: 'No se puede modificar un slot que ya tiene turnos asociados. Gestioná los turnos primero.',
+      });
+    }
+
     if (startTime && endTime) {
-      const start = new Date(`1970-01-01T${startTime}`);
-      const end   = new Date(`1970-01-01T${endTime}`);
+      const start = new Date(`1970-01-01T${startTime}:00Z`);
+      const end   = new Date(`1970-01-01T${endTime}:00Z`);
       if (end <= start) {
         return res.status(400).json({ mensaje: 'endTime debe ser posterior a startTime' });
       }
@@ -209,13 +228,52 @@ export const actualizarSlot = async (req, res) => {
     const slotActualizado = await prisma.availability.update({
       where: { id: availabilityId },
       data: {
-        ...(startTime !== undefined && { startTime: new Date(`1970-01-01T${startTime}`) }),
-        ...(endTime   !== undefined && { endTime:   new Date(`1970-01-01T${endTime}`) }),
+        ...(startTime !== undefined && { startTime: new Date(`1970-01-01T${startTime}:00Z`) }),
+        ...(endTime   !== undefined && { endTime:   new Date(`1970-01-01T${endTime}:00Z`) }),
         ...(active    !== undefined && { active }),
       },
     });
 
     res.json(slotActualizado);
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ mensaje: 'Slot no encontrado' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ════════════════════════════════════════════════════════════════
+// ELIMINAR UN SLOT INDIVIDUAL
+// ════════════════════════════════════════════════════════════════
+export const eliminarSlot = async (req, res) => {
+  try {
+    const { availabilityId } = req.params;
+
+    const slot = await prisma.availability.findUnique({
+      where: { id: availabilityId },
+      include: { appointments: { select: { id: true } } },
+    });
+
+    if (!slot) {
+      return res.status(404).json({ mensaje: 'Slot de disponibilidad no encontrado' });
+    }
+
+    if (!await verificarProfesional(slot.professionalId, req.user)) {
+      return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
+    }
+
+    // No se puede borrar un slot que tiene turnos asociados (de cualquier estado),
+    // porque rompería la relación con Appointment.
+    if (slot.appointments.length > 0) {
+      return res.status(409).json({
+        mensaje: 'No se puede eliminar un slot que tiene turnos asociados. Gestioná los turnos primero.',
+      });
+    }
+
+    await prisma.availability.delete({ where: { id: availabilityId } });
+
+    res.json({ mensaje: 'Slot eliminado correctamente' });
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ mensaje: 'Slot no encontrado' });

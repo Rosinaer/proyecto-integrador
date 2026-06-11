@@ -270,11 +270,30 @@ export const crearProfessionalService = async (req, res) => {
     });
 
     if (existente) {
-      return res.status(409).json({
-        mensaje:
-          "Ya existe esta combinación profesional-servicio. Usá PATCH para actualizar precio o duración.",
-        id: existente.id,
+      // Si la combinación está activa, no se duplica.
+      if (existente.active) {
+        return res.status(409).json({
+          mensaje:
+            "Ya existe esta combinación profesional-servicio. Usá PATCH para actualizar precio o duración.",
+          id: existente.id,
+        });
+      }
+
+      // Si estaba dada de baja lógica, la reactivamos con los nuevos valores.
+      const reactivado = await prisma.professionalService.update({
+        where: { id: existente.id },
+        data: {
+          active: true,
+          price: Number(price),
+          durationMinutes: Number(durationMinutes),
+        },
+        include: {
+          professional: { include: { person: true } },
+          service: { include: { category: true } },
+        },
       });
+
+      return res.status(200).json(reactivado);
     }
 
     const ps = await prisma.professionalService.create({
@@ -305,12 +324,12 @@ export const crearProfessionalService = async (req, res) => {
 export const actualizarProfessionalService = async (req, res) => {
   try {
     const { id } = req.params;
-    const { price, durationMinutes } = req.body;
+    const { price, durationMinutes, active } = req.body;
 
-    if (price === undefined && durationMinutes === undefined) {
+    if (price === undefined && durationMinutes === undefined && active === undefined) {
       return res.status(400).json({
         mensaje:
-          "Debés enviar al menos price o durationMinutes para actualizar",
+          "Debés enviar al menos price, durationMinutes o active para actualizar",
       });
     }
 
@@ -333,6 +352,7 @@ export const actualizarProfessionalService = async (req, res) => {
         ...(durationMinutes !== undefined && {
           durationMinutes: Number(durationMinutes),
         }),
+        ...(active !== undefined && { active }),
       },
       include: {
         professional: { include: { person: true } },
@@ -361,7 +381,7 @@ export const obtenerServiciosPorProfesional = async (req, res) => {
       include: {
         service: { include: { category: true } },
       },
-      orderBy: { service: { name: "asc" } },
+      orderBy: [{ active: "desc" }, { service: { name: "asc" } }],
     });
 
     res.json(servicios);

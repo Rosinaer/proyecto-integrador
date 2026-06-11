@@ -1,12 +1,12 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 
 export const Modal = ({ isOpen, onClose, title, children }) => {
   // Si isOpen es falso, no renderizamos absolutamente nada
   if (!isOpen) return null;
 
-  return (
+return ReactDOM.createPortal(
     <div style={styles.overlay} onClick={onClose}>
-      {/* El e.stopPropagation() evita que al hacer clic dentro del modal, este se cierre */}
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
           <h3 style={styles.title}>{title}</h3>
@@ -19,7 +19,8 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body // 3. Le decimos que se renderice en el body
   );
 };
 

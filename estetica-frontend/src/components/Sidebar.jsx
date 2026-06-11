@@ -32,8 +32,9 @@ function Sidebar() {
           </li>
           <li><NavLink to="/admin/usuarios">Usuarios</NavLink></li>
           <li><NavLink to="/admin/profesionales">Profesionales</NavLink></li>
-          <li><NavLink to="/admin/apertura-agenda">Apertura de Agenda</NavLink></li>
+          <li><NavLink to="/admin/agendas">Agendas</NavLink></li>
           <li><NavLink to="/admin/turnos">Turnos</NavLink></li>
+          <li><NavLink to="/admin/reportes">Reportes</NavLink></li>
           <li><NavLink to="/admin/servicios">Servicios</NavLink></li>
           <li><NavLink to="/admin/categorias">Categorías de Servicios</NavLink></li>
           <li><NavLink to="/admin/servicios-profesional">Servicios por Profesional</NavLink></li>
