@@ -24,6 +24,16 @@ const UsuariosAdmin = () => {
   const { token } = useAuth(); 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
+  // Primero los activos, luego los inactivos; alfabético dentro de cada grupo.
+  const ordenarPorEstadoYNombre = (lista) => {
+    const esActivo = (x) => Boolean(x.active ?? x.activo);
+    const nombre = (x) => (x.nombre || x.person?.name || x.name || "").toLowerCase();
+    return [...lista].sort((a, b) => {
+      if (esActivo(a) !== esActivo(b)) return esActivo(a) ? -1 : 1;
+      return nombre(a).localeCompare(nombre(b));
+    });
+  };
+
   const obtenerUsuarios = async () => {
     try {
       const respuesta = await fetch(`${apiUrl}/users`, {
@@ -31,7 +41,7 @@ const UsuariosAdmin = () => {
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) throw new Error(datos.error || "Error al traer usuarios");
-      setUsuarios(datos);
+      setUsuarios(ordenarPorEstadoYNombre(datos));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -130,7 +140,7 @@ const UsuariosAdmin = () => {
           const estaActivo = u.active || u.activo;
           
           return (
-            <Tr key={u.id}>
+            <Tr key={u.id} style={!estaActivo ? { backgroundColor: '#f1f5f9', color: '#94a3b8' } : undefined}>
               <Td>{u.nombre || u.person?.name || u.name}</Td>
               <Td>{u.email || u.person?.email}</Td>
               <Td>

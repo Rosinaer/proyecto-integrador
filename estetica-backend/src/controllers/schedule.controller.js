@@ -50,6 +50,17 @@ export const crearHorario = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
     }
 
+    const mismosDelDia = await prisma.recurringSchedule.findMany({
+      where: { professionalId: id, dayOfWeek: Number(dayOfWeek), active: true },
+    });
+
+    const seSuperpone = mismosDelDia.some((h) => start < h.endTime && end > h.startTime);
+    if (seSuperpone) {
+      return res.status(409).json({
+        mensaje: 'El horario se superpone con otro ya existente para ese día de la semana',
+      });
+    }
+
     const horario = await prisma.recurringSchedule.create({
       data: {
         professionalId: id,

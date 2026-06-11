@@ -20,8 +20,8 @@ export const Table = ({ headers, children }) => {
 };
 
 // Exportamos también la fila (Tr) y la celda (Td) para mantener el estilo consistente
-export const Tr = ({ children }) => (
-  <tr style={styles.tr}>{children}</tr>
+export const Tr = ({ children, style, className }) => (
+  <tr className={className} style={{ ...styles.tr, ...style }}>{children}</tr>
 );
 
 export const Td = ({ children, style }) => (

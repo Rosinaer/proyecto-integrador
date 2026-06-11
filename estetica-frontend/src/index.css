@@ -29,7 +29,6 @@ input, select {
   padding: 8px;
   border-radius: 5px;
   border: 1px solid #ccc;
-  min-width: 150px;
 }
 
 button {

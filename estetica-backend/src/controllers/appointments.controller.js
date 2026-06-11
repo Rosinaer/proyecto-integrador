@@ -166,6 +166,7 @@ export const obtenerTurnos = async (req, res) => {
         },
         availability: true,
         payments: true,
+        reminders: true,
       },
       orderBy: {
         startsAt: 'asc'

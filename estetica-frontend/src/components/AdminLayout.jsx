@@ -13,7 +13,8 @@ const AdminLayout = () => {
         marginLeft: '220px', 
         padding: '40px', // Aumentamos el aire
         minHeight: '100vh',
-        width: 'calc(100% - 220px)'
+        width: 'calc(100% - 220px)',
+        boxSizing: 'border-box' // el padding ya no suma altura extra → sin scroll fantasma
       }}>
         <Outlet />
       </main>

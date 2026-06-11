@@ -17,6 +17,7 @@ import {
   obtenerDisponibilidad,
   crearSlotManual,
   actualizarSlot,
+  eliminarSlot,
 } from '../controllers/availability.controller.js';
 import {
   obtenerBloqueos,
@@ -499,6 +500,8 @@ router.patch('/:id/availability/:availabilityId', verificarToken, autorizarRoles
  *         description: Token inválido o ausente
  */
 router.delete('/:id/availability/revert', verificarToken, autorizarRoles(['ADMIN', 'PROFESSIONAL']), revertirDisponibilidad);
+
+router.delete('/:id/availability/:availabilityId', verificarToken, autorizarRoles(['ADMIN', 'PROFESSIONAL']), eliminarSlot);
 
 // ── BLOQUEOS ─────────────────────────────────────────────────
 /**

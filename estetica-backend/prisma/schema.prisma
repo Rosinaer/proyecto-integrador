@@ -181,6 +181,8 @@ model ProfessionalService {
   serviceId       String   @map("service_id") @db.Uuid
   durationMinutes Int      @map("duration_minutes")
   price           Decimal  @db.Decimal(10, 2)
+  // Agregamos el campo aquí:
+  active          Boolean  @default(true)
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   professional    Professional @relation(fields: [professionalId], references: [id])

@@ -21,6 +21,9 @@ import PacientesAdmin from "./pages/admin/PacientesAdmin";
 import FichaPacienteAdmin from "./pages/admin/FichaPacienteAdmin";
 import CategoriaServiciosAdmin from "./pages/admin/CategoriaServiciosAdmin";
 import ProfessionalServicesAdmin from "./pages/admin/ProfessionalServicesAdmin";
+import FichaProfesionalAdmin from "./pages/admin/FichaProfesionalAdmin";
+import ReportesAdmin from "./pages/admin/ReportesAdmin";
+
 
 // Páginas de Paciente (Comentado temporalmente por QA)
 // import PacienteDashboard from "./pages/paciente/Dashboard";
@@ -51,13 +54,15 @@ function App() {
           <Route path="profesionales" element={<ProfesionalesAdmin />} />
           <Route path="servicios" element={<ServiciosAdmin />} />
           <Route path="turnos" element={<TurnosAdmin />} />
+          <Route path="reportes" element={<ReportesAdmin />} />
           <Route path="calendario" element={<CalendarioSemanal />} />
-          <Route path="apertura-agenda" element={<AperturaAgenda />} />
+          <Route path="agendas" element={<AperturaAgenda />} />
           <Route path="mi-perfil" element={<CambiarPassword />} />
           <Route path="pacientes" element={<PacientesAdmin />} />
           <Route path="pacientes/:id" element={<FichaPacienteAdmin />} />
           <Route path="categorias" element={<CategoriaServiciosAdmin />} />
           <Route path="servicios-profesional" element={<ProfessionalServicesAdmin />} />
+          <Route path="profesionales/:id" element={<FichaProfesionalAdmin />} />
         </Route>
 
         {/* --- RUTAS DE PACIENTE (Comentadas temporalmente por QA) --- */}

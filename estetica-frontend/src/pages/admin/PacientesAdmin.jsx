@@ -57,12 +57,9 @@ const PacientesAdmin = () => {
   }, [token]);
 
   // MODAL CREAR
-
   const abrirModalForm = () => {
     setModoEdicion(false);
-
     setPacienteEditandoId(null);
-
     setFormData({
       name: "",
       documentType: "DNI",
@@ -72,15 +69,15 @@ const PacientesAdmin = () => {
       cuilCuit: "",
       clinicalNotes: "",
     });
+    setErrorForm("");
     setModalFormAbierto(true);
   };
 
   // MODAL EDITAR
-
   const abrirModalEditar = (paciente) => {
     setModoEdicion(true);
     setPacienteEditandoId(paciente.id);
-
+    setErrorForm("");
     setFormData({
       name: paciente.person?.name || "",
       documentType: paciente.person?.documentType || "DNI",
@@ -90,22 +87,17 @@ const PacientesAdmin = () => {
       cuilCuit: paciente.cuilCuit || "",
       clinicalNotes: paciente.clinicalNotes || "",
     });
-
     setModalFormAbierto(true);
   };
 
   // GUARDAR
-
   const guardarPaciente = async (e) => {
     e.preventDefault();
-
     setErrorForm("");
     setCargandoForm(true);
 
     try {
-      const payload = {
-        ...formData,
-      };
+      const payload = { ...formData };
 
       if (modoEdicion) {
         await actualizarPaciente(pacienteEditandoId, payload, token);
@@ -114,55 +106,28 @@ const PacientesAdmin = () => {
       }
 
       setModalFormAbierto(false);
-
       cargarPacientes();
     } catch (err) {
-      setErrorForm(err.message);
+      setErrorForm(err.response?.data?.mensaje || err.message);
     } finally {
       setCargandoForm(false);
     }
   };
 
   if (cargando) {
-    return (
-      <p
-        style={{
-          textAlign: "center",
-          marginTop: "50px",
-        }}
-      >
-        Cargando pacientes...
-      </p>
-    );
+    return <p style={{ textAlign: "center", marginTop: "50px" }}>Cargando pacientes...</p>;
   }
 
   return (
     <div style={{ padding: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h2 style={{ color: "#6b21a8" }}>Gestión de Pacientes</h2>
-
         <Button onClick={abrirModalForm}>+ Nuevo Paciente</Button>
       </div>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <Table
-        headers={[
-          "Nombre",
-          "Documento",
-          "Email",
-          "Teléfono",
-          "CUIL/CUIT",
-          "Acciones",
-        ]}
-      >
+      <Table headers={["Nombre", "Documento", "Email", "Teléfono", "CUIL/CUIT", "Acciones"]}>
         {pacientes.map((p) => (
           <Tr key={p.id}>
             <Td>
@@ -170,34 +135,25 @@ const PacientesAdmin = () => {
                 style={{ color: "#6b21a8", cursor: "pointer" }}
                 onClick={() => navigate(`/admin/pacientes/${p.id}`)}
               >
-              <strong>{p.person?.name}</strong>
+                <strong>{p.person?.name}</strong>
               </span>
             </Td>
-
             <Td>
               {p.person?.documentType} {p.person?.document}
             </Td>
-
             <Td>{p.person?.email}</Td>
-
             <Td>{p.person?.phone}</Td>
-
             <Td>{p.cuilCuit}</Td>
-
             <Td>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
                 <Button
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: "12px",
-                    backgroundColor: "#64748b",
-                  }}
+                  style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#8b5cf6" }}
+                  onClick={() => navigate(`/admin/pacientes/${p.id}`)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }}
                   onClick={() => abrirModalEditar(p)}
                 >
                   Editar
@@ -209,71 +165,32 @@ const PacientesAdmin = () => {
       </Table>
 
       {/* MODAL FORMULARIO */}
-
       <Modal
         isOpen={modalFormAbierto}
         onClose={() => setModalFormAbierto(false)}
         title={modoEdicion ? "Editar Paciente" : "Crear Nuevo Paciente"}
       >
         {errorForm && (
-          <p
-            style={{
-              color: "red",
-              fontSize: "14px",
-              textAlign: "center",
-            }}
-          >
-            {errorForm}
-          </p>
+          <p style={{ color: "red", fontSize: "14px", textAlign: "center" }}>{errorForm}</p>
         )}
 
-        <form
-          onSubmit={guardarPaciente}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "15px",
-            marginTop: "10px",
-          }}
-        >
+        <form onSubmit={guardarPaciente} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "10px" }}>
           <Input
             type="text"
             placeholder="Nombre completo"
             value={formData.name}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                name: e.target.value,
-              })
-            }
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
 
           <Select
             value={formData.documentType}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                documentType: e.target.value,
-              })
-            }
+            onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
             options={[
-              {
-                value: "DNI",
-                label: "DNI",
-              },
-              {
-                value: "PASSPORT",
-                label: "Pasaporte",
-              },
-              {
-                value: "CUIL",
-                label: "CUIL",
-              },
-              {
-                value: "CUIT",
-                label: "CUIT",
-              },
+              { value: "DNI", label: "DNI" },
+              { value: "PASSPORT", label: "Pasaporte" },
+              { value: "CUIL", label: "CUIL" },
+              { value: "CUIT", label: "CUIT" },
             ]}
           />
 
@@ -281,12 +198,7 @@ const PacientesAdmin = () => {
             type="text"
             placeholder="Número de documento"
             value={formData.document}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                document: e.target.value,
-              })
-            }
+            onChange={(e) => setFormData({ ...formData, document: e.target.value })}
             required
           />
 
@@ -294,12 +206,7 @@ const PacientesAdmin = () => {
             type="email"
             placeholder="Email"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                email: e.target.value,
-              })
-            }
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required={!modoEdicion}
             disabled={modoEdicion}
           />
@@ -308,12 +215,7 @@ const PacientesAdmin = () => {
             type="text"
             placeholder="Teléfono"
             value={formData.phone}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                phone: e.target.value,
-              })
-            }
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             required
           />
 
@@ -321,41 +223,24 @@ const PacientesAdmin = () => {
             type="text"
             placeholder="CUIL/CUIT"
             value={formData.cuilCuit}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                cuilCuit: e.target.value,
-              })
-            }
+            onChange={(e) => setFormData({ ...formData, cuilCuit: e.target.value })}
           />
+
           <Input
             type="text"
             placeholder="Notas clínicas"
             value={formData.clinicalNotes}
-            onChange={(e) =>
-              setFormData({ ...formData, clinicalNotes: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, clinicalNotes: e.target.value })}
           />
 
-          <div
-            style={{
-              display: "flex",
-              gap: "10px",
-              marginTop: "10px",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div style={{ display: "flex", gap: "10px", marginTop: "10px", justifyContent: "flex-end" }}>
             <Button
               type="button"
-              style={{
-                backgroundColor: "#e2e8f0",
-                color: "#475569",
-              }}
+              style={{ backgroundColor: "#e2e8f0", color: "#475569" }}
               onClick={() => setModalFormAbierto(false)}
             >
               Cancelar
             </Button>
-
             <Button type="submit" disabled={cargandoForm}>
               {cargandoForm ? "Guardando..." : "Guardar Paciente"}
             </Button>
