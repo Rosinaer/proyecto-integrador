@@ -55,6 +55,8 @@ git clone https://github.com/GabyA0714/proyecto-integrador.git
 cd proyecto-integrador
 ```
 
+> **Importante:** `node_modules/` y los archivos `.env` están en `.gitignore`, así que **no se clonan**. Cada persona los recrea en su máquina siguiendo estos pasos.
+
 ### 2. Configurar la base de datos
 
 Abrí pgAdmin o psql y creá la base de datos:
@@ -139,13 +141,7 @@ Creá el archivo `.env` dentro de la carpeta `estetica-frontend/`:
 VITE_API_URL=http://localhost:3000/api
 ```
 
-Iniciá el servidor:
-
-```bash
-npm start
-```
-
-Tambien podes iniciar el servidor en modo desarrollo:
+Iniciá el servidor en modo desarrollo:
 
 ```bash
 npm run dev
@@ -176,6 +172,22 @@ Una vez iniciados ambos servidores:
 - Recordatorios automáticos
 - Sincronización con Google Calendar
 
+---
+ 
+## Comandos frecuentes
+ 
+Una guía rápida de qué comando usar en cada situación (todos desde `estetica-backend/`, salvo aclaración):
+ 
+| Situación | Comando |
+|---|---|
+| Cambiaste el `schema.prisma` (agregaste un campo o tabla) | `npx prisma migrate dev --name descripcion_del_cambio` |
+| Hiciste `git pull` y un compañero subió migraciones nuevas (agrego un campo o tabla) y la base quedo desincronizada | `npx prisma migrate dev` |
+| Reinstalaste `node_modules` sin tocar el schema | `npx prisma generate` |
+| Querés ver/editar los datos visualmente | `npx prisma studio` |
+| Resetear los datos a cero | `node prisma/reset-data.js` |
+| Levantar backend en desarrollo | `npm run dev` |
+| Levantar frontend en desarrollo (desde `estetica-frontend/`) | `npm run dev` |
+ 
 ## Notas
 
 Proyecto académico con fines educativos.
