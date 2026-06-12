@@ -39,55 +39,50 @@ async function main() {
 
   /* ────────────────────────────────────────────────────────────
    * 1. USUARIOS BASE (admin + recepción + paciente de prueba)
-   *    Se usan upsert por email para que NO choque si ya corriste seed1.
    * ──────────────────────────────────────────────────────────── */
-  const admin = await prisma.people.upsert({
-    where: { email: 'admin@espaciosenda.com' },
-    update: {},
-    create: {
-      name: 'Admin Senda',
-      documentType: 'DNI',
-      document: '11111111',
-      email: 'admin@espaciosenda.com',
-      phone: '1111111111',
-      user: { create: { passwordHash: hashedPassword, role: 'ADMIN' } },
-    },
-    include: { user: true },
+  
+  // Función auxiliar para crear persona si no existe por email
+  async function findOrCreateUser(email, data) {
+    const existing = await prisma.people.findFirst({ where: { email }, include: { user: true } });
+    if (existing) return existing;
+    return await prisma.people.create({ data, include: { user: true } });
+  }
+
+  const admin = await findOrCreateUser('admin@espaciosenda.com', {
+    name: 'Admin Senda',
+    documentType: 'DNI',
+    document: '11111111',
+    cuilCuit: '20111111110', // Campo obligatorio agregado
+    email: 'admin@espaciosenda.com',
+    phone: '1111111111',
+    user: { create: { passwordHash: hashedPassword, role: 'ADMIN' } },
   });
 
-  const recep = await prisma.people.upsert({
-    where: { email: 'recepcion@espaciosenda.com' },
-    update: {},
-    create: {
-      name: 'Recepción Senda',
-      documentType: 'DNI',
-      document: '22222222',
-      email: 'recepcion@espaciosenda.com',
-      phone: '1122222222',
-      user: { create: { passwordHash: hashedPassword, role: 'RECEPTIONIST' } },
-    },
-    include: { user: true },
+  const recep = await findOrCreateUser('recepcion@espaciosenda.com', {
+    name: 'Recepción Senda',
+    documentType: 'DNI',
+    document: '22222222',
+    cuilCuit: '20222222220', // Campo obligatorio agregado
+    email: 'recepcion@espaciosenda.com',
+    phone: '1122222222',
+    user: { create: { passwordHash: hashedPassword, role: 'RECEPTIONIST' } },
   });
 
-  await prisma.people.upsert({
-    where: { email: 'paciente@prueba.com' },
-    update: {},
-    create: {
-      name: 'Paciente Prueba',
-      documentType: 'DNI',
-      document: '99999999',
-      email: 'paciente@prueba.com',
-      phone: '1199999999',
-      patient: { create: { cuilCuit: '20999999992' } },
-      user: { create: { passwordHash: hashedPassword, role: 'PATIENT' } },
-    },
+  await findOrCreateUser('paciente@prueba.com', {
+    name: 'Paciente Prueba',
+    documentType: 'DNI',
+    document: '99999999',
+    cuilCuit: '20999999992', // Campo obligatorio agregado
+    email: 'paciente@prueba.com',
+    phone: '1199999999',
+    patient: { }, // Nota: si paciente tiene cuil, asegurate que coincida con People
+    user: { create: { passwordHash: hashedPassword, role: 'PATIENT' } },
   });
 
   const adminUserId = admin.user.id;
   const recepUserId = recep.user.id;
   const creadores = [adminUserId, recepUserId];
   console.log('✅ Admin, recepción y paciente de prueba listos.');
-
   /* ────────────────────────────────────────────────────────────
    * 2. CATEGORÍAS Y SERVICIOS (MENOS categorías y DISTINTOS a seed1)
    *    seed1 tenía 4 categorías. Acá usamos 2.
@@ -214,6 +209,7 @@ async function main() {
           serviceId: baseService.id,
           durationMinutes: sv.dur,
           price: money(sv.price),
+          active: true,
         },
       });
       servicios.push({ professionalServiceId: ps.id, name: sv.name, dur: sv.dur, price: sv.price });
@@ -227,6 +223,7 @@ async function main() {
           dayOfWeek: h.dow,
           startTime: timeUTC(h.start),
           endTime: timeUTC(h.end),
+          active: true,
         },
       });
     }
@@ -301,9 +298,10 @@ async function main() {
         name: pd.name,
         documentType: 'DNI',
         document: pd.doc,
+        cuilCuit: `27${pd.doc}4`, // Campo obligatorio agregado (27...4 para evitar colisión con profesionales)
         email: `paciente${i + 1}@mail.com`,
         phone: pd.tel,
-        patient: { create: { cuilCuit: `27${pd.doc}4` } },
+        patient: { create: {  } },
       },
       include: { patient: true },
     });

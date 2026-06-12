@@ -13,8 +13,7 @@ datasource db {
 enum DocumentType {
   DNI
   PASSPORT
-  CUIL
-  CUIT
+  OTHER
 }
 
 enum Role {
@@ -92,7 +91,8 @@ model People {
   name         String
   documentType DocumentType @map("document_type")
   document     String
-  email        String       @unique
+  cuilCuit     String       @default("") @map("cuil_cuit")
+  email        String
   phone        String
   createdAt    DateTime     @default(now()) @map("created_at")
 
@@ -100,6 +100,11 @@ model People {
   professional Professional?
   patient      Patient?
 
+  // El email deja de ser único: una persona puede gestionar turnos de
+  // familiares con el mismo mail, y un typo no debe bloquear. El único
+  // identificador inmutable es `id`. El duplicado de paciente por
+  // (tipo + número de documento) se valida a nivel aplicación al crear,
+  // dejando todos los campos editables ante un error de carga.
   @@map("people")
 }
 
@@ -138,7 +143,6 @@ model Professional {
 model Patient {
   id           String   @id @default(uuid()) @db.Uuid
   peopleId     String   @unique @map("people_id") @db.Uuid
-  cuilCuit     String   @map("cuil_cuit")
   createdAt    DateTime @default(now()) @map("created_at")
 
   clinicalNotes String?      @map("clinical_notes")

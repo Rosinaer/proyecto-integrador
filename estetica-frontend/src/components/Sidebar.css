@@ -52,12 +52,19 @@
   background: #374151;
 }
 
+.sidebar nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -20px;  
+  padding: 0 20px; 
+}
+
+
 .sidebar ul {
   list-style: none;
   padding: 0;
   margin: 0;
-  flex: 1; /* la lista de links ocupa el espacio disponible */
-  overflow-y: auto; /* por si agregás más links */
 }
 
 .sidebar li {
@@ -132,9 +139,3 @@
   background: #dc2626;
 }
 
-/* En desktop el botón de colapsar es opcional: si querés que el sidebar
-   quede siempre fijo en pantallas grandes, descomentá esto.
-@media (min-width: 769px) {
-  .sidebar-collapse { display: none; }
-}
-*/\

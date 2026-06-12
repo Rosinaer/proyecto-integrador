@@ -47,7 +47,7 @@ export const obtenerPacientePorId = async (req, res) => {
 
 export const crearPaciente = async (req, res) => {
   try {
-    const { name, documentType, document, email, phone, cuilCuit, clinicalNotes } = req.body;
+    const { name, documentType, document, email, phone, cuilCuit, clinicalNotes, confirmLink } = req.body;
 
     if (!name || !documentType || !document || !email || !phone) {
       return res.status(400).json({
@@ -55,49 +55,72 @@ export const crearPaciente = async (req, res) => {
       });
     }
 
-    const documentTypesValidos = ["DNI", "PASSPORT", "CUIL", "CUIT"];
+    const documentTypesValidos = ["DNI", "PASSPORT", "OTHER"];
     if (!documentTypesValidos.includes(documentType)) {
       return res.status(400).json({
         mensaje: `documentType debe ser uno de: ${documentTypesValidos.join(", ")}`,
       });
     }
 
-    const personaExistente = await prisma.people.findUnique({
-      where: { email },
+    // La identidad es el documento (tipo + número). Buscamos si ya existe la
+    // persona para no duplicarla.
+    const personaExistente = await prisma.people.findFirst({
+      where: { documentType, document },
+      include: { patient: true, professional: true, user: true },
     });
 
     if (personaExistente) {
-      const pacienteExistente = await prisma.patient.findUnique({
-        where: { peopleId: personaExistente.id },
-      });
-
-      if (pacienteExistente) {
+      if (personaExistente.patient) {
         return res.status(409).json({
-          mensaje: "Ya existe un paciente registrado con ese email",
+          mensaje: "Ya existe un paciente con ese tipo y número de documento",
         });
       }
 
-      const paciente = await prisma.patient.create({
-        data: {
-          peopleId: personaExistente.id,
-          cuilCuit: cuilCuit ?? "",
-          clinicalNotes: clinicalNotes ?? "",
-        },
-        include: { person: true },
+      // La persona existe (ej. ya es profesional/usuario) pero no es paciente.
+      // No la asociamos en silencio: pedimos confirmación explícita.
+      if (!confirmLink) {
+        return res.status(409).json({
+          needsConfirmation: true,
+          mensaje: `Ya existe una persona con ese documento: ${personaExistente.name}. ¿Querés registrarla también como paciente?`,
+          person: {
+            id: personaExistente.id,
+            name: personaExistente.name,
+            email: personaExistente.email,
+            documentType: personaExistente.documentType,
+            document: personaExistente.document,
+            isProfessional: !!personaExistente.professional,
+            isUser: !!personaExistente.user,
+          },
+        });
+      }
+
+      // Confirmado: asociamos el paciente a la persona existente (y completamos
+      // cuilCuit en people si se cargó).
+      const paciente = await prisma.$transaction(async (tx) => {
+        if (cuilCuit !== undefined && cuilCuit !== "") {
+          await tx.people.update({ where: { id: personaExistente.id }, data: { cuilCuit } });
+        }
+        return tx.patient.create({
+          data: {
+            peopleId: personaExistente.id,
+            clinicalNotes: clinicalNotes ?? null,
+          },
+          include: { person: true },
+        });
       });
 
       return res.status(201).json(paciente);
     }
 
+    // Persona nueva: creamos people (con cuilCuit) + patient.
     const resultado = await prisma.$transaction(async (tx) => {
       const persona = await tx.people.create({
-        data: { name, documentType, document, email, phone },
+        data: { name, documentType, document, email, phone, cuilCuit: cuilCuit ?? "" },
       });
 
       const paciente = await tx.patient.create({
         data: {
           peopleId: persona.id,
-          cuilCuit: cuilCuit ?? "",
           clinicalNotes: clinicalNotes || null,
         },
         include: { person: true },
@@ -108,11 +131,6 @@ export const crearPaciente = async (req, res) => {
 
     res.status(201).json(resultado);
   } catch (error) {
-    if (error.code === "P2002") {
-      return res
-        .status(409)
-        .json({ mensaje: "Ya existe una persona con ese email" });
-    }
     res.status(500).json({ error: error.message });
   }
 };
@@ -120,7 +138,7 @@ export const crearPaciente = async (req, res) => {
 export const actualizarPaciente = async (req, res) => {
   try {
     const { id } = req.params;
-    const { cuilCuit, name, phone, document, documentType, clinicalNotes } = req.body;
+    const { cuilCuit, name, phone, document, documentType, email, clinicalNotes } = req.body;
 
     const paciente = await prisma.patient.findUnique({
       where: { id },
@@ -131,7 +149,7 @@ export const actualizarPaciente = async (req, res) => {
     }
 
     if (documentType) {
-      const documentTypesValidos = ["DNI", "PASSPORT", "CUIL", "CUIT"];
+      const documentTypesValidos = ["DNI", "PASSPORT", "OTHER"];
       if (!documentTypesValidos.includes(documentType)) {
         return res.status(400).json({
           mensaje: `documentType debe ser uno de: ${documentTypesValidos.join(", ")}`,
@@ -144,7 +162,9 @@ export const actualizarPaciente = async (req, res) => {
         name !== undefined ||
         phone !== undefined ||
         document !== undefined ||
-        documentType !== undefined
+        documentType !== undefined ||
+        email !== undefined ||
+        cuilCuit !== undefined
       ) {
         await tx.people.update({
           where: { id: paciente.peopleId },
@@ -153,17 +173,16 @@ export const actualizarPaciente = async (req, res) => {
             ...(phone !== undefined && { phone }),
             ...(document !== undefined && { document }),
             ...(documentType !== undefined && { documentType }),
+            ...(email !== undefined && { email }),
+            ...(cuilCuit !== undefined && { cuilCuit }),
           },
         });
       }
 
-      if (cuilCuit !== undefined  || clinicalNotes !== undefined) {
+      if (clinicalNotes !== undefined) {
         await tx.patient.update({
           where: { id },
-          data: {
-            ...(cuilCuit !== undefined && { cuilCuit }),
-            ...(clinicalNotes !== undefined && { clinicalNotes }),
-          },
+          data: { clinicalNotes },
         });
       }
 

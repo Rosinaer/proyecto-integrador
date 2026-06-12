@@ -1,19 +1,10 @@
-// ============================================================
-// ESPACIO SENDA — Dashboard.jsx  (pestaña "Inicio")
-// Ruta: src/pages/admin/Dashboard.jsx
-//
-//   • Filtro superior: profesional (Todos) + mes + año  → KPIs del mes
-//       Turnos de hoy · Asistencia · No-shows · Ingresos · [Reservar turno]
-//   • Control de turnos: filtro por día (hoy por defecto) + profesional (Todos)
-//       Tabla estilo del resto del panel con acciones:
-//       ver detalle · cambiar estado · cobrar · cancelar
-// ============================================================
-
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table, Tr, Td } from "../../components/ui/Table";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
+import { useBanner } from "../../components/ui/Banner";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 import { fechaClinicaStr } from "../../config/clinica";
 
@@ -24,13 +15,13 @@ const hora = (iso) =>
 const fechaHora = (iso) =>
   iso ? new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
 
-// fecha de pared de un instante guardado (para agrupar/contar por día)
+
 const fechaParedStr = (iso) => {
   const d = new Date(iso);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 };
 
-// "hoy" según la zona de la clínica, no la del navegador
+
 const hoyStr = () => fechaClinicaStr();
 
 
@@ -47,15 +38,6 @@ const ESTADOS = {
   NO_SHOW:     { label: "No asistió", bg: "#f1f5f9", fg: "#64748b" },
 };
 
-// Mismas transiciones que valida el backend (appointments.controller)
-const TRANSICIONES = {
-  PENDING:     ["CONFIRMED", "CANCELLED"],
-  CONFIRMED:   ["IN_PROGRESS", "COMPLETED", "NO_SHOW", "CANCELLED"],
-  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-  COMPLETED:   [],
-  CANCELLED:   [],
-  NO_SHOW:     [],
-};
 
 const PAGO = {
   PENDING:   { label: "Pendiente",   bg: "#fef9c3", fg: "#854d0e" },
@@ -131,6 +113,7 @@ const Badge = ({ map, value }) => {
 const Dashboard = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
+  const banner = useBanner();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
   const hoy = new Date();
@@ -151,9 +134,6 @@ const Dashboard = () => {
   const [cargandoTabla, setCargandoTabla] = useState(false);
   const [accionando, setAccionando] = useState(false);
 
-  const [mensajeOk, setMensajeOk] = useState("");
-  const [errorGlobal, setErrorGlobal] = useState("");
-
   // Modales
   const [detalle, setDetalle] = useState(null);
   const [estadoTurno, setEstadoTurno] = useState(null); // turno al que se le cambia el estado
@@ -164,8 +144,9 @@ const Dashboard = () => {
     Authorization: `Bearer ${token}`, "Content-Type": "application/json",
   }), [token]);
 
-  const mostrarOk    = (m) => { setMensajeOk(m);   setTimeout(() => setMensajeOk(""), 4000); };
-  const mostrarError = (m) => { setErrorGlobal(m); setTimeout(() => setErrorGlobal(""), 6000); };
+  // Mensajes ahora van al banner global persistente (no desaparecen solos).
+  const mostrarOk    = (m) => banner.success(m);
+  const mostrarError = (m) => banner.error(m);
 
   // ── Profesionales ──
   useEffect(() => {
@@ -236,6 +217,7 @@ const Dashboard = () => {
   // ── Acciones ──
   const cambiarEstado = async (turno, status) => {
     setAccionando(true);
+    const prev = turno.status;
     try {
       const res = await fetch(`${API}/appointments/${turno.id}/status`, {
         method: "PATCH", headers: headers(), body: JSON.stringify({ status }),
@@ -244,7 +226,17 @@ const Dashboard = () => {
       if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo cambiar el estado");
       setEstadoTurno(null);
       refrescar();
-      mostrarOk(`✓ Turno marcado como ${ESTADOS[status]?.label || status}.`);
+      window.dispatchEvent(new Event("senda:appointments-changed"));
+      banner.success("Estado del turno actualizado", {
+        details: [
+          ["Paciente", nomPac(turno)],
+          ["Turno", `${fechaParedStr(turno.startsAt).split("-").reverse().join("/")} · ${hora(turno.startsAt)}`],
+          ["Profesional", nomProf(turno)],
+          ["Servicio", nomServ(turno)],
+          ["Estado anterior", ESTADOS[prev]?.label || prev],
+          ["Estado nuevo", ESTADOS[status]?.label || status],
+        ],
+      });
     } catch (err) {
       mostrarError(err.message);
     } finally {
@@ -273,9 +265,22 @@ const Dashboard = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo registrar el cobro");
+      const metodoLbl = METODOS.find((m) => m.value === formCobro.method)?.label || formCobro.method;
+      const tipoLbl = TIPOS_PAGO.find((m) => m.value === formCobro.type)?.label || formCobro.type;
+      const totalPagado = pagadoDe(cobroTurno) + Number(formCobro.amount);
+      const turnoCobrado = cobroTurno;
       setCobroTurno(null);
       refrescar();
-      mostrarOk(`✓ Cobro de ${moneda(formCobro.amount)} registrado.`);
+      banner.success("Cobro registrado", {
+        details: [
+          ["Paciente", nomPac(turnoCobrado)],
+          ["Servicio", nomServ(turnoCobrado)],
+          ["Monto", moneda(formCobro.amount)],
+          ["Método", metodoLbl],
+          ["Tipo", tipoLbl],
+          ["Pagado / Total", `${moneda(totalPagado)} / ${moneda(turnoCobrado.priceSnapshot)}`],
+        ],
+      });
     } catch (err) {
       mostrarError(err.message);
     } finally {
@@ -290,15 +295,10 @@ const Dashboard = () => {
   // ════════════════════════════════════════════════════════════
   return (
     <div style={{ width: "100%", boxSizing: "border-box" }}>
-      <div style={{ marginBottom: "24px", textAlign: "center" }}>
-        <h2 style={{ color: "#6b21a8", fontSize: "1.9rem", margin: "0 0 6px 0" }}>
-          ¡Hola, {user?.person?.name || user?.name || "Admin"}! 👋
-        </h2>
-        <p style={{ color: "#64748b", margin: 0 }}>Resumen de <strong>Espacio Senda</strong>.</p>
-      </div>
-
-      {mensajeOk && <div style={S.alertOk}>{mensajeOk}</div>}
-      {errorGlobal && <div style={S.alertError}>{errorGlobal}</div>}
+      <PageHeader
+        title={`¡Hola, ${user?.person?.name || user?.name || "Admin"}! 👋`}
+        subtitle={<>Resumen de <strong>Espacio Senda</strong>.</>}
+      />
 
       {/* ── Filtro de KPIs ── */}
       <div style={{ ...S.card, marginBottom: "20px" }}>
@@ -390,7 +390,6 @@ const Dashboard = () => {
           <Table headers={["Inicio", "Fin", "Paciente", "Profesional", "Servicio",
                            "Estado", "Pago", "Recordatorio", "Acciones"]}>
             {tablaTurnos.map((t) => {
-              const transiciones = TRANSICIONES[t.status] || [];
               const rem = Array.isArray(t.reminders) ? t.reminders : null;
               const remTxt = rem == null ? "—"
                 : rem.some((r) => r.status === "SENT") ? "✓ Enviado"
@@ -399,7 +398,17 @@ const Dashboard = () => {
                 <Tr key={t.id}>
                   <Td><strong style={{ color: "#6b21a8" }}>{hora(t.startsAt)}</strong></Td>
                   <Td>{hora(t.endsAt)}</Td>
-                  <Td>{nomPac(t)}</Td>
+                  <Td>
+                    {t.patientId ? (
+                      <span
+                        style={{ color: "#6b21a8", cursor: "pointer" }}
+                        onClick={() => navigate(`/admin/pacientes/${t.patientId}`)}
+                        title="Ver ficha del paciente"
+                      >
+                        <strong>{nomPac(t)}</strong>
+                      </span>
+                    ) : nomPac(t)}
+                  </Td>
                   <Td>{nomProf(t)}</Td>
                   <Td>{nomServ(t)}</Td>
                   <Td><Badge map={ESTADOS} value={t.status} /></Td>
@@ -410,9 +419,8 @@ const Dashboard = () => {
                       <Button style={{ ...S.btnSmall, backgroundColor: "#8b5cf6" }}
                               onClick={() => setDetalle(t)}>Detalle</Button>
                       <Button style={{ ...S.btnSmall, backgroundColor: "#64748b" }}
-                              disabled={transiciones.length === 0}
                               onClick={() => setEstadoTurno(t)}
-                              title={transiciones.length === 0 ? "Turno en estado final" : "Cambiar estado"}>
+                              title="Cambiar estado (se puede revertir a cualquier estado)">
                         Estado
                       </Button>
                       <Button style={{ ...S.btnSmall, backgroundColor: "#16a34a", color: "#fff" }}
@@ -421,7 +429,7 @@ const Dashboard = () => {
                         Cobrar
                       </Button>
                       <Button variant="danger" style={S.btnSmall}
-                              disabled={!transiciones.includes("CANCELLED")}
+                              disabled={t.status === "CANCELLED"}
                               onClick={() => cambiarEstado(t, "CANCELLED")}>
                         Cancelar
                       </Button>
@@ -436,29 +444,96 @@ const Dashboard = () => {
 
       {/* ── Modal detalle ── */}
       <Modal isOpen={!!detalle} onClose={() => setDetalle(null)} title="Detalle del turno">
-        {detalle && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
-            <p style={{ margin: 0 }}><strong>Fecha:</strong> {fechaHora(detalle.startsAt)} → {hora(detalle.endsAt)}</p>
-            <p style={{ margin: 0 }}><strong>Paciente:</strong> {nomPac(detalle)}</p>
-            <p style={{ margin: 0 }}><strong>Contacto:</strong> {detalle.patient?.person?.phone || "—"} · {detalle.patient?.person?.email || "—"}</p>
-            <p style={{ margin: 0 }}><strong>Servicio:</strong> {nomServ(detalle)}</p>
-            <p style={{ margin: 0 }}><strong>Profesional:</strong> {nomProf(detalle)}</p>
-            <p style={{ margin: 0 }}><strong>Estado:</strong> <Badge map={ESTADOS} value={detalle.status} /></p>
-            <p style={{ margin: 0 }}>
-              <strong>Pago:</strong> <Badge map={PAGO} value={detalle.paymentStatus} />{" "}
-              <span style={{ color: "#64748b" }}>
-                ({moneda(pagadoDe(detalle))} de {moneda(detalle.priceSnapshot)})
-              </span>
-            </p>
-            {detalle.notes && (
-              <div style={{ marginTop: "6px", padding: "10px", backgroundColor: "#f8fafc",
-                            borderRadius: "6px", borderLeft: "4px solid #6b21a8" }}>
-                <strong>📝 Notas:</strong>
-                <p style={{ margin: "5px 0 0 0", color: "#475569" }}>{detalle.notes}</p>
+        {detalle && (() => {
+          const pagado = pagadoDe(detalle);
+          const total = Number(detalle.priceSnapshot || 0);
+          const saldo = Math.max(0, total - pagado);
+          const dur = Math.round((new Date(detalle.endsAt) - new Date(detalle.startsAt)) / 60000);
+          const pagos = Array.isArray(detalle.payments) ? detalle.payments : [];
+          const rems = Array.isArray(detalle.reminders) ? detalle.reminders : [];
+          const fila = (label, val) => (
+            <div><span style={{ color: "#64748b", fontSize: 12 }}>{label}</span><br /><strong>{val ?? "—"}</strong></div>
+          );
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: "10px 18px" }}>
+                {fila("Fecha", `${fechaHora(detalle.startsAt)} → ${hora(detalle.endsAt)}`)}
+                {fila("Duración", `${dur} min`)}
+                {fila("Estado", <Badge map={ESTADOS} value={detalle.status} />)}
+                {fila("Paciente", nomPac(detalle))}
+                {fila("Contacto", `${detalle.patient?.person?.phone || "—"} · ${detalle.patient?.person?.email || "—"}`)}
+                {fila("Documento", detalle.patient?.person ? `${detalle.patient.person.documentType} ${detalle.patient.person.document}` : "—")}
+                {fila("Profesional", nomProf(detalle))}
+                {fila("Servicio", nomServ(detalle))}
+                {fila("Tipo de turno", detalle.isOverbook ? "Sobreturno" : "Normal")}
+                {fila("Creado", fechaHora(detalle.createdAt))}
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Pagos */}
+              <div style={{ padding: "10px 12px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                  <strong>Pago</strong>
+                  <span><Badge map={PAGO} value={detalle.paymentStatus} /></span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px,1fr))", gap: "8px 14px", marginTop: 8 }}>
+                  {fila("Total", moneda(total))}
+                  {fila("Pagado", moneda(pagado))}
+                  {fila("Saldo", moneda(saldo))}
+                  {detalle.depositAmount ? fila("Seña", moneda(detalle.depositAmount)) : null}
+                  {detalle.discountAmount ? fila("Descuento", `${moneda(detalle.discountAmount)}${detalle.discountReason ? ` (${detalle.discountReason})` : ""}`) : null}
+                </div>
+                {pagos.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ color: "#64748b", fontSize: 12 }}>Movimientos:</span>
+                    <ul style={{ margin: "4px 0 0", paddingLeft: 18, color: "#475569", fontSize: 13 }}>
+                      {pagos.map((p) => (
+                        <li key={p.id}>
+                          {p.isRefund ? "− " : "+ "}{moneda(p.amount)} · {fechaHora(p.paidAt || p.createdAt)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Reprogramación */}
+              {detalle.rescheduleRequestedAt && (
+                <div style={{ padding: "8px 12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13 }}>
+                  ⟳ Marcado para reprogramar el {fechaHora(detalle.rescheduleRequestedAt)}
+                </div>
+              )}
+
+              {/* Recordatorios */}
+              {rems.length > 0 && (
+                <div style={{ fontSize: 13 }}>
+                  <span style={{ color: "#64748b", fontSize: 12 }}>Recordatorios:</span>{" "}
+                  {rems.map((r, i) => (
+                    <span key={r.id || i} style={{ marginRight: 8 }}>
+                      {r.status === "SENT" ? "✓ Enviado" : r.status === "FAILED" ? "✕ Falló" : "Pendiente"}
+                      {r.sentAt ? ` (${fechaHora(r.sentAt)})` : ""}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {detalle.notes && (
+                <div style={{ padding: "10px", backgroundColor: "#f8fafc", borderRadius: "6px", borderLeft: "4px solid #6b21a8" }}>
+                  <strong>📝 Notas:</strong>
+                  <p style={{ margin: "5px 0 0 0", color: "#475569" }}>{detalle.notes}</p>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                {detalle.patientId && (
+                  <Button style={{ backgroundColor: "#8b5cf6" }}
+                          onClick={() => { const id = detalle.patientId; setDetalle(null); navigate(`/admin/pacientes/${id}`); }}>
+                    Ver ficha del paciente
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* ── Modal cambiar estado ── */}
@@ -468,16 +543,23 @@ const Dashboard = () => {
             <p style={{ marginTop: 0 }}>
               Estado actual: <Badge map={ESTADOS} value={estadoTurno.status} /> — {nomPac(estadoTurno)} · {hora(estadoTurno.startsAt)}
             </p>
-            <p style={{ fontSize: "13px", color: "#64748b" }}>Elegí el nuevo estado:</p>
+            <p style={{ fontSize: "13px", color: "#64748b" }}>
+              Elegí el nuevo estado. Se puede mover a cualquier estado (por si hubo un click equivocado y querés revertirlo):
+            </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              {(TRANSICIONES[estadoTurno.status] || []).map((s) => (
-                <Button key={s}
-                        variant={s === "CANCELLED" ? "danger" : "primary"}
-                        disabled={accionando}
-                        onClick={() => cambiarEstado(estadoTurno, s)}>
-                  {ESTADOS[s]?.label || s}
-                </Button>
-              ))}
+              {Object.keys(ESTADOS).map((s) => {
+                const actual = s === estadoTurno.status;
+                return (
+                  <Button key={s}
+                          variant={s === "CANCELLED" ? "danger" : "primary"}
+                          disabled={accionando || actual}
+                          style={actual ? { opacity: 0.5 } : undefined}
+                          title={actual ? "Estado actual" : `Marcar como ${ESTADOS[s].label}`}
+                          onClick={() => cambiarEstado(estadoTurno, s)}>
+                    {actual ? `● ${ESTADOS[s].label} (actual)` : ESTADOS[s].label}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         )}

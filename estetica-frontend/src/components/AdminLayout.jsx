@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import { BannerProvider } from "./ui/Banner";
 
 const SIDEBAR_WIDTH = 220;
 const MOBILE_BP = 768;
@@ -13,7 +14,6 @@ const AdminLayout = () => {
     () => typeof window !== "undefined" && window.innerWidth > MOBILE_BP
   );
 
-  // Al cambiar el tamaño: en desktop el sidebar queda abierto, en mobile cerrado.
   useEffect(() => {
     const onResize = () => {
       const mobile = window.innerWidth <= MOBILE_BP;
@@ -30,7 +30,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
+    <div style={{ height: "100dvh", overflow: "hidden", backgroundColor: "#f8fafc" }}>
       <Sidebar
         open={open}
         isMobile={isMobile}
@@ -38,7 +38,7 @@ const AdminLayout = () => {
         onNavigate={handleNavigate}
       />
 
-      {/* Botón flotante para abrir el menú (visible solo cuando está cerrado) */}
+
       {!open && (
         <button
           type="button"
@@ -64,7 +64,6 @@ const AdminLayout = () => {
         </button>
       )}
 
-      {/* Fondo oscuro en mobile cuando el menú está abierto (click para cerrar) */}
       {open && isMobile && (
         <div
           onClick={() => setOpen(false)}
@@ -77,16 +76,31 @@ const AdminLayout = () => {
         />
       )}
 
+
       <main
         style={{
           marginLeft: open && !isMobile ? SIDEBAR_WIDTH : 0,
           transition: "margin-left .25s ease",
-          padding: isMobile ? "70px 16px 24px" : "40px",
-          minHeight: "100vh",
+          height: "100dvh",
           boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        <Outlet />
+        <BannerProvider>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,          
+              overflowY: "auto",
+              overflowX: "hidden",
+              padding: isMobile ? "0 16px 24px" : "0 40px 32px",
+            }}
+          >
+            <Outlet />
+          </div>
+        </BannerProvider>
       </main>
     </div>
   );

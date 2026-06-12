@@ -3,6 +3,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { PacienteFormModal } from "../../components/PacienteFormModal";
+import { useBanner } from "../../components/ui/Banner";
+import { PageHeader } from "../../components/ui/PageHeader";
+
+// Etiqueta completa de un paciente: Nombre · DOC · email (si tiene)
+const pacienteLabel = (p) => {
+  if (!p) return "";
+  const per = p.person || p;
+  const doc = [per.documentType, per.document].filter(Boolean).join(" ");
+  return [per.name, doc, per.email].filter(Boolean).join(" · ");
+};
 
 // ── Paleta Espacio Senda ────────────────────────────────────────
 const PURPLE = "#6b21a8";
@@ -84,13 +94,12 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
 
 // ════════════════════════════════════════════════════════════════
 //  Panel de reserva
-//   · onCreated?: () => void   -> se llama al crear el turno
-//   · embedded?: boolean       -> true cuando va dentro de un Modal
 // ════════════════════════════════════════════════════════════════
 export default function ReservaTurno({ onCreated, embedded = false }) {
   const { token } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const banner = useBanner();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const headers = { Authorization: `Bearer ${token}` };
   const jsonHeaders = { "Content-Type": "application/json", ...headers };
@@ -104,8 +113,8 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
 
   // modo profesional
   const [profSel, setProfSel] = useState("");
-  const [serviciosProf, setServiciosProf] = useState([]); // ProfessionalService[]
-  const [elegidos, setElegidos] = useState([]);           // serviceId[] (en orden)
+  const [serviciosProf, setServiciosProf] = useState([]); 
+  const [elegidos, setElegidos] = useState([]);
 
   // modo servicio
   const [servSel, setServSel] = useState("");
@@ -137,7 +146,6 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   const [notas, setNotas] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
-  const [resumen, setResumen] = useState(null); // resumen del último turno creado
 
   // ── Carga inicial de catálogos ──
   useEffect(() => {
@@ -280,7 +288,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
 
   const onPacienteGuardado = (pac) => {
     setPacSel(pac.id);
-    setPacQuery(pac.person?.name || "");
+    setPacQuery(pacienteLabel(pac));
     setPacientes([]);
     setPacBuscado(false);
     setModalPacAbierto(false);
@@ -296,7 +304,6 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   // ── Crear el turno (normal o sobreturno) ──
   const confirmar = async () => {
     setError("");
-    setResumen(null);
     if (!contexto || !pacSel) return;
     if (sobreturno ? (!stFecha || !stHora) : !slotSel) return;
     setGuardando(true);
@@ -321,24 +328,15 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo crear el turno");
 
-      // Capturamos el detalle ANTES del reset, para mostrar el resumen
       const profNombre = modo === "profesional"
         ? (profesionales.find((p) => p.id === profSel)?.person?.name || "—")
         : (opcionSel?.professionalName || "—");
       const servNombres = modo === "profesional"
         ? elegidos.map((sid) => serviciosProf.find((s) => s.serviceId === sid)?.service?.name).filter(Boolean)
         : (servInfo?.name ? [servInfo.name] : []);
-      const nuevoResumen = {
-        profesional: profNombre,
-        servicios: servNombres,
-        duration: contexto.duration,
-        price: contexto.price,
-        startsAt: startsAtISO,
-        paciente: pacQuery,
-        avisos: contexto.avisos || [],
-        notas: notas || "",
-        sobreturno,
-      };
+
+      const finISO = new Date(new Date(startsAtISO).getTime() + contexto.duration * 60000).toISOString();
+      const pacienteTxt = pacQuery;
 
       // reset suave
       setSlotSel(null); setDiaSel(""); setNotas("");
@@ -346,7 +344,27 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       setPacQuery(""); setPacSel("");
       setElegidos([]); setOpcionSel(null);
 
-      setResumen(nuevoResumen);
+      // Resumen persistente en el banner global (aparece también cuando este
+      // panel se abre como modal desde otras pantallas, ej. Turnos).
+      banner.success(`Turno agendado${sobreturno ? " (sobreturno)" : ""}`, {
+        details: [
+          ["Fecha", fmtFechaLarga(startsAtISO)],
+          ["Horario", `${fmtHora(startsAtISO)} – ${fmtHora(finISO)} (${contexto.duration} min)`],
+          ["Profesional", profNombre],
+          ["Paciente", pacienteTxt || "—"],
+          [servNombres.length > 1 ? "Servicios" : "Servicio", servNombres.join(" + ") || "—"],
+          ["Precio", fmtPrecio(contexto.price)],
+        ],
+        notes: notas || "",
+        warnings: contexto.avisos || [],
+        actions: embedded
+          ? [{ label: "Reservar otro", onClick: () => banner.clear() }]
+          : [
+              { label: "Reservar otro", onClick: () => banner.clear() },
+              { label: "Ir a la agenda", primary: true, onClick: () => navigate("/admin/turnos") },
+            ],
+      });
+
       onCreated?.();
     } catch (e) {
       setError(e.message);
@@ -383,61 +401,13 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
 
   return (
     <div>
-      {/* Encabezado (solo fuera del modal) */}
+      {/* Encabezado + banner solo fuera del modal. Embebido (en Turnera),
+          el título y el BannerSlot los pone esa página. */}
       {!embedded && (
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ color: PURPLE, margin: 0, textAlign: "left" }}>Reservar Turno</h2>
-          <p style={{ color: MUTED, fontSize: 13, margin: "4px 0 0" }}>
-            Elegí por profesional o por servicio, seleccioná día y horario, y asigná el paciente.
-          </p>
-        </div>
-      )}
-
-      {/* Tarjeta de resumen del turno creado */}
-      {resumen && (
-        <div style={{ border: "1px solid #86efac", background: "#f0fdf4", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-            <strong style={{ color: "#166534", fontSize: 15 }}>
-              ✓ Turno agendado{resumen.sobreturno && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: WARN_TX, background: WARN_BG, borderRadius: 12, padding: "2px 8px" }}>Sobreturno</span>}
-            </strong>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setResumen(null)}
-                style={{ background: "#fff", color: "#166534", border: "1px solid #86efac", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
-                Reservar otro
-              </button>
-              {!embedded && (
-                <button type="button" onClick={() => navigate("/admin/turnos")}
-                  style={{ background: "#166534", color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
-                  Ir a la agenda
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px 20px", fontSize: 13, color: "#334155" }}>
-            <div><span style={{ color: "#64748b" }}>Fecha</span><br /><strong style={{ textTransform: "capitalize" }}>{fmtFechaLarga(resumen.startsAt)}</strong></div>
-            <div><span style={{ color: "#64748b" }}>Horario</span><br />
-              <strong>{fmtHora(resumen.startsAt)} – {fmtHora(new Date(new Date(resumen.startsAt).getTime() + resumen.duration * 60000).toISOString())}</strong>{" "}
-              <span style={{ color: "#64748b" }}>({resumen.duration} min)</span>
-            </div>
-            <div><span style={{ color: "#64748b" }}>Profesional</span><br /><strong>{resumen.profesional}</strong></div>
-            <div><span style={{ color: "#64748b" }}>Paciente</span><br /><strong>{resumen.paciente || "—"}</strong></div>
-            <div><span style={{ color: "#64748b" }}>{resumen.servicios.length > 1 ? "Servicios" : "Servicio"}</span><br /><strong>{resumen.servicios.join(" + ") || "—"}</strong></div>
-            <div><span style={{ color: "#64748b" }}>Precio</span><br /><strong>{fmtPrecio(resumen.price)}</strong></div>
-          </div>
-
-          {resumen.notas && (
-            <div style={{ marginTop: 10, fontSize: 12, color: "#475569" }}>
-              <span style={{ color: "#64748b" }}>Notas:</span> {resumen.notas}
-            </div>
-          )}
-
-          {resumen.avisos.length > 0 && (
-            <div style={{ marginTop: 10, background: WARN_BG, color: WARN_TX, borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
-              {resumen.avisos.map((a, i) => <div key={i}>⚠ {a}</div>)}
-            </div>
-          )}
-        </div>
+        <PageHeader
+          title="Reservar Turno"
+          subtitle="Elegí por profesional o por servicio, seleccioná día y horario, y asigná el paciente."
+        />
       )}
 
       {/* Pestañas + toggle de sobreturno */}
@@ -539,7 +509,26 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
 
         {/* ── COLUMNA DERECHA: DÍA/HORARIO (o FECHA/HORA) + PACIENTE ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {!contexto && <div style={{ ...vacio, padding: "40px 12px", textAlign: "center" }}>Elegí {modo === "profesional" ? "profesional y servicios" : "servicio y profesional"} para ver los turnos.</div>}
+          {/* Calendario siempre visible: en gris hasta que se elija qué reservar */}
+          {!contexto && !sobreturno && (
+            <div>
+              <label style={lbl}>Día</label>
+              <div style={{ opacity: 0.55, pointerEvents: "none" }}>
+                <MiniCalendario
+                  year={verMes.year} month={verMes.month} dias={[]} diaSel=""
+                  onPick={() => {}} onNav={() => {}}
+                />
+              </div>
+              <div style={{ ...vacio, padding: "10px 0 0", textAlign: "center" }}>
+                Elegí {modo === "profesional" ? "profesional y servicios" : "servicio y profesional"} para ver los días con turno.
+              </div>
+            </div>
+          )}
+          {!contexto && sobreturno && (
+            <div style={{ ...vacio, padding: "40px 12px", textAlign: "center" }}>
+              Elegí {modo === "profesional" ? "profesional y servicios" : "servicio y profesional"} para cargar el sobreturno.
+            </div>
+          )}
 
           {contexto && (
             <>
@@ -605,11 +594,16 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                 <input value={pacQuery} onChange={(e) => { setPacQuery(e.target.value); setPacSel(""); }} placeholder="Buscar por nombre, email o teléfono…" style={{ ...sel, padding: "8px 12px" }} />
 
                 {pacientes.length > 0 && !pacSel && (
-                  <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, marginTop: 4, maxHeight: 130, overflowY: "auto", background: "#fff" }}>
+                  <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff" }}>
                     {pacientes.map((p) => (
-                      <div key={p.id} onClick={() => { setPacSel(p.id); setPacQuery(p.person?.name || ""); setPacientes([]); }}
+                      <div key={p.id} onClick={() => { setPacSel(p.id); setPacQuery(pacienteLabel(p)); setPacientes([]); }}
                         style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f1f5f9" }}>
-                        {p.person?.name} <span style={{ color: MUTED, fontSize: 11 }}>· {p.person?.phone}</span>
+                        <strong style={{ color: "#334155" }}>{p.person?.name}</strong>
+                        <div style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>
+                          {p.person?.documentType} {p.person?.document}
+                          {p.person?.email ? ` · ${p.person.email}` : ""}
+                          {p.person?.phone ? ` · ${p.person.phone}` : ""}
+                        </div>
                       </div>
                     ))}
                   </div>

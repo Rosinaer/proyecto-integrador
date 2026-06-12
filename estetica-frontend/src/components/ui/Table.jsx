@@ -24,8 +24,8 @@ export const Tr = ({ children, style, className }) => (
   <tr className={className} style={{ ...styles.tr, ...style }}>{children}</tr>
 );
 
-export const Td = ({ children, style }) => (
-  <td style={{ ...styles.td, ...style }}>{children}</td>
+export const Td = ({ children, style, colSpan, onClick, title }) => (
+  <td style={{ ...styles.td, ...style }} colSpan={colSpan} onClick={onClick} title={title}>{children}</td>
 );
 
 const styles = {

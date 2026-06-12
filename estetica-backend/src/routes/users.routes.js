@@ -5,12 +5,14 @@ import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
   crearUsuario,
-  actualizarUsuario, // Esto ahora usa PATCH
+  actualizarUsuario, 
   eliminarUsuario,
   cambiarPassword,
-  desactivarUsuario, // Agregado
-  activarUsuario,    // Agregado
-  buscarPersonas     // Agregado
+  desactivarUsuario, 
+  activarUsuario,    
+  buscarPersonas,   
+  obtenerMiPerfil,   
+  actualizarMiPerfil 
 } from '../controllers/users.controller.js';
 
 const router = express.Router();
@@ -74,6 +76,11 @@ router.get(
   verificarToken,
   buscarPersonas
 );
+
+// PERFIL PROPIO — cualquier usuario logueado puede ver/editar sus datos.
+// Debe ir ANTES de "/:id" para que "me" no se interprete como un id.
+router.get("/me", verificarToken, obtenerMiPerfil);
+router.patch("/me", verificarToken, actualizarMiPerfil);
 
 // SOLO ADMIN puede ver usuario por ID
 

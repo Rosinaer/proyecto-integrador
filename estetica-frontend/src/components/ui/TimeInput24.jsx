@@ -37,11 +37,6 @@ export const TimeInput24 = ({ value = "00:00", onChange, disabled = false, style
   const m = mRaw.padStart(2, "0");
 
 
-
-  // Si el valor trae un minuto fuera de la grilla de 5 (ej "09:07"),
-
-  // lo agregamos a las opciones para no perderlo.
-
   const minutos = MINUTOS_BASE.includes(m)
 
     ? MINUTOS_BASE

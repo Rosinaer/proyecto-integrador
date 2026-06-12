@@ -1,14 +1,3 @@
-// ============================================================
-// ESPACIO SENDA — CalendarioSemanal.jsx
-// Ruta sugerida: src/pages/admin/CalendarioSemanal.jsx
-//
-// Vista de agenda semanal (Lun → Sáb) con:
-//   • Grilla hora × día
-//   • Turnos coloreados por profesional
-//   • Navegación entre semanas
-//   • Filtro por profesional
-//   • Modal de detalle al hacer clic en un turno
-// ============================================================
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Modal } from "../../components/ui/Modal";
@@ -295,7 +284,7 @@ const CalendarioSemanal = () => {
   );
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div>
 
       {/* ── ENCABEZADO ───────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap", gap: "14px" }}>

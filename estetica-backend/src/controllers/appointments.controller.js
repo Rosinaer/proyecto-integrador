@@ -560,21 +560,14 @@ export const cambiarEstadoTurno = async (req, res) => {
     if (!turno) {
       return res.status(404).json({ mensaje: 'Turno no encontrado' });
     }
- 
-    const transicionesValidas = {
-      PENDING: ['CONFIRMED', 'CANCELLED'],
-      CONFIRMED: ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'IN_PROGRESS'],
-      IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
-      COMPLETED: [],
-      CANCELLED: [],
-      NO_SHOW: [],
-    };
- 
-    const permitidos = transicionesValidas[turno.status] || [];
-    if (!permitidos.includes(status)) {
+
+    // Se permite mover el turno a cualquier estado conocido (incluso revertir
+    // un cambio hecho por error). Solo se valida que el estado sea válido.
+    const ESTADOS_VALIDOS = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'];
+    if (!ESTADOS_VALIDOS.includes(status)) {
       return res.status(400).json({
-        mensaje: `Transición inválida: no se puede pasar de ${turno.status} a ${status}`,
-        transicionesPermitidas: permitidos,
+        mensaje: `Estado inválido: ${status}`,
+        estadosValidos: ESTADOS_VALIDOS,
       });
     }
  

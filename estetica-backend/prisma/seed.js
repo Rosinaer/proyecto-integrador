@@ -17,6 +17,7 @@ async function main() {
       name: 'Admin Senda',
       documentType: 'DNI',
       document: '11111111',
+      cuilCuit: '20111111110',
       email: 'admin@espaciosenda.com',
       phone: '1111111111',
       user: {
@@ -33,10 +34,10 @@ async function main() {
       name: 'Paciente Prueba',
       documentType: 'DNI',
       document: '99999999',
+      cuilCuit: '20999999992',
       email: 'paciente@prueba.com',
       phone: '1199999999',
       patient: {
-        create: { cuilCuit: '20999999992' }
       },
       user: {
         create: {
@@ -74,6 +75,7 @@ async function main() {
         name: prof.name,
         documentType: 'DNI',
         document: prof.document,
+        cuilCuit: `20${prof.document}0`,
         email: prof.email,
         phone: '1100000000', 
         professional: {

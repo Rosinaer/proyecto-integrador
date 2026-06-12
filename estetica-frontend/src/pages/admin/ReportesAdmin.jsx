@@ -1,18 +1,5 @@
-// ============================================================
-// ESPACIO SENDA — ReportesAdmin.jsx  (pestaña "Reportes")
-// Ruta: src/pages/admin/ReportesAdmin.jsx
-//
-//   • Filtro: profesional (Todos) + rango "desde / hasta"
-//     (por defecto, el mes en curso y todos los profesionales)
-//   • Paneles: Ingresos · Turnos realizados · Asistencia · No-shows ·
-//     Cancelación · Ticket promedio · Total turnos
-//   • Servicios más solicitados (ranking) y desglose por estado
-//
-// Todo se calcula en el front desde GET /appointments para que el
-// filtro de profesional aplique de forma consistente.
-// ============================================================
-
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 
 const ESTADOS = {
@@ -146,12 +133,10 @@ const ReportesAdmin = () => {
 
   return (
     <div style={{ width: "100%", boxSizing: "border-box" }}>
-      <div style={{ marginBottom: "22px" }}>
-        <h2 style={{ color: "#6b21a8", margin: "0 0 6px 0" }}>Reportes</h2>
-        <p style={{ color: "#64748b", margin: 0 }}>
-          Métricas del período seleccionado. Por defecto, el mes en curso y todos los profesionales.
-        </p>
-      </div>
+      <PageHeader
+        title="Reportes"
+        subtitle="Métricas del período seleccionado. Por defecto, el mes en curso y todos los profesionales."
+      />
 
       {error && <div style={S.alertError}>{error}</div>}
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Select } from "../../components/ui/Select";
 import { useAuth } from "../../hooks/useAuth";
 import { GestionServiciosProfesional } from "../../components/GestionServiciosProfesional";
+import { PageHeader } from "../../components/ui/PageHeader";
 import axios from "axios";
 
 const BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}`;
@@ -51,10 +52,7 @@ const ProfessionalServicesAdmin = () => {
 
   return (
     <div>
-      {/* Título arriba, alineado a la izquierda */}
-      <h2 style={{ color: "#6b21a8", margin: "0 0 16px", textAlign: "left" }}>
-        Servicios por Profesional
-      </h2>
+      <PageHeader title="Servicios por Profesional" />
 
       {/* Selector del profesional, debajo del título */}
       <div style={{ maxWidth: "360px", marginBottom: "24px" }}>

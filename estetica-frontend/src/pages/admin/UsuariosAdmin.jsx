@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Table, Tr, Td } from "../../components/ui/Table";
 import { Button } from "../../components/ui/Button";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { Modal } from "../../components/ui/Modal";
 import { Input } from "../../components/ui/Input";
 import { useAuth } from "../../hooks/useAuth";
@@ -17,9 +18,11 @@ const UsuariosAdmin = () => {
   const [modalFormAbierto, setModalFormAbierto] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [usuarioEditandoId, setUsuarioEditandoId] = useState(null);
-  const [formData, setFormData] = useState({ nombre: "", email: "", password: "", rol: "RECEPTIONIST" });
+  const VACIO_USER = { nombre: "", email: "", password: "", rol: "RECEPTIONIST", document: "", documentType: "DNI" };
+  const [formData, setFormData] = useState(VACIO_USER);
   const [errorForm, setErrorForm] = useState("");
   const [cargandoForm, setCargandoForm] = useState(false);
+  const [confirmDataUser, setConfirmDataUser] = useState(null);
 
   const { token } = useAuth(); 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -54,24 +57,34 @@ const UsuariosAdmin = () => {
   const abrirModalCrear = () => {
     setModoEdicion(false);
     setUsuarioEditandoId(null);
-    setFormData({ nombre: "", email: "", password: "", rol: "RECEPTIONIST" });
+    setFormData(VACIO_USER);
+    setErrorForm("");
+    setConfirmDataUser(null);
     setModalFormAbierto(true);
   };
 
   const abrirModalEditar = (u) => {
     setModoEdicion(true);
     setUsuarioEditandoId(u.id);
-    setFormData({ 
-      nombre: u.nombre || u.person?.name || u.name || "", 
-      email: u.email || u.person?.email || "", 
-      password: "", 
-      rol: u.rol || u.role 
+    setErrorForm("");
+    setConfirmDataUser(null);
+    setFormData({
+      nombre: u.nombre || u.person?.name || u.name || "",
+      email: u.email || u.person?.email || "",
+      password: "",
+      rol: u.rol || u.role,
+      document: u.person?.document || u.document || "",
+      documentType: u.person?.documentType || u.documentType || "DNI",
     });
     setModalFormAbierto(true);
   };
 
-  const manejarGuardado = async (e) => {
+  const manejarGuardado = (e) => {
     e.preventDefault();
+    doGuardarUsuario(false);
+  };
+
+  const doGuardarUsuario = async (confirmLink) => {
     setErrorForm("");
     setCargandoForm(true);
     try {
@@ -79,6 +92,7 @@ const UsuariosAdmin = () => {
       const method = modoEdicion ? "PATCH" : "POST";
       const payload = { ...formData };
       if (modoEdicion && !payload.password) delete payload.password;
+      if (confirmLink) payload.confirmLink = true;
 
       const respuesta = await fetch(url, {
         method: method,
@@ -86,13 +100,18 @@ const UsuariosAdmin = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!respuesta.ok) {
-        const datos = await respuesta.json();
-        throw new Error(datos.mensaje || datos.error || "Error al guardar");
-      }
+      const datos = await respuesta.json().catch(() => ({}));
 
+      // La persona (por documento) ya existe: pedimos confirmación para darle acceso.
+      if (!respuesta.ok && datos.needsConfirmation) {
+        setConfirmDataUser(datos);
+        return;
+      }
+      if (!respuesta.ok) throw new Error(datos.mensaje || datos.error || "Error al guardar");
+
+      setConfirmDataUser(null);
       setModalFormAbierto(false);
-      obtenerUsuarios(); 
+      obtenerUsuarios();
     } catch (err) {
       setErrorForm(err.message);
     } finally {
@@ -129,11 +148,11 @@ const UsuariosAdmin = () => {
   if (cargando) return <p style={{ textAlign: 'center', marginTop: '50px' }}>Cargando usuarios...</p>;
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ color: '#6b21a8' }}>Gestión de Usuarios</h2>
-        <Button onClick={abrirModalCrear}>+ Nuevo Usuario</Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Gestión de Usuarios"
+        actions={<Button onClick={abrirModalCrear}>+ Nuevo Usuario</Button>}
+      />
 
       <Table headers={["Nombre", "Email", "Rol", "Estado", "Acciones"]}>
         {usuarios.map((u) => {
@@ -175,9 +194,42 @@ const UsuariosAdmin = () => {
       <Modal isOpen={modalFormAbierto} onClose={() => setModalFormAbierto(false)} title={modoEdicion ? "Editar Usuario" : "Crear Nuevo Usuario"}>
         {/* Agregamos autoComplete="off" al formulario para bloquear las sugerencias de Chrome */}
         <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          
+
+          {confirmDataUser && (
+            <div style={{ border: "1px solid #fde047", background: "#fef9c3", color: "#854d0e", borderRadius: 8, padding: "12px 14px" }}>
+              <div style={{ fontSize: 14, marginBottom: 8 }}>{confirmDataUser.mensaje}</div>
+              {confirmDataUser.person && (
+                <div style={{ fontSize: 12, marginBottom: 10 }}>
+                  {confirmDataUser.person.name} · {confirmDataUser.person.email || "sin email"}
+                  {confirmDataUser.person.isPatient ? " · es paciente" : ""}
+                  {confirmDataUser.person.isProfessional ? " · es profesional" : ""}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setConfirmDataUser(null)}>No, revisar</Button>
+                <Button type="button" disabled={cargandoForm} onClick={() => doGuardarUsuario(true)}>
+                  {cargandoForm ? "Asociando..." : "Sí, darle acceso"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Input type="text" placeholder="Nombre completo" autoComplete="off" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} required />
           <Input type="email" placeholder="Email" autoComplete="new-email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+
+          {!modoEdicion && (
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <select value={formData.documentType} onChange={(e) => setFormData({...formData, documentType: e.target.value})} style={{ padding: '10px', borderRadius: '5px', border: '1px solid #cbd5e1' }}>
+                <option value="DNI">DNI</option>
+                <option value="PASSPORT">Pasaporte</option>
+                <option value="OTHER">Otro</option>
+              </select>
+              <div style={{ flex: 1 }}>
+                <Input type="text" placeholder="N° de documento (opcional, para vincular a una persona existente)" autoComplete="off" value={formData.document} onChange={(e) => setFormData({...formData, document: e.target.value})} />
+              </div>
+            </div>
+          )}
+
           <Input type="password" placeholder={modoEdicion ? "Contraseña (dejar vacío para no cambiar)" : "Contraseña"} autoComplete="new-password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required={!modoEdicion} />
           
           <select value={formData.rol} onChange={(e) => setFormData({...formData, rol: e.target.value})} style={{ padding: '10px', borderRadius: '5px', border: '1px solid #cbd5e1' }}>

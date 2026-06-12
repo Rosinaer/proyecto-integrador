@@ -30,8 +30,8 @@ export const register = async (req, res) => {
       });
     }
 
-    const personaExistente = await prisma.people.findUnique({
-      where: { email }
+    const personaExistente = await prisma.people.findFirst({
+      where: { email, user: { isNot: null } }
     });
 
     if (personaExistente) {
@@ -54,9 +54,7 @@ export const register = async (req, res) => {
           }
         },
         patient: {
-          create: {
-            cuilCuit: ""
-          }
+          create: {}
         }
       },
       include: { user: true }
@@ -88,8 +86,8 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email y contraseña obligatorios" });
     }
 
-    const persona = await prisma.people.findUnique({
-      where: { email },
+    const persona = await prisma.people.findFirst({
+      where: { email, user: { isNot: null } },
       include: { user: true }
     });
 
@@ -185,8 +183,8 @@ export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     
-    const persona = await prisma.people.findUnique({
-      where: { email },
+    const persona = await prisma.people.findFirst({
+      where: { email, user: { isNot: null } },
       include: { user: true }
     });
 

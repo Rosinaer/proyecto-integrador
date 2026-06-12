@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { Table, Tr, Td } from "../../components/ui/Table";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -56,7 +57,7 @@ const FichaPacienteAdmin = () => {
   }
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div>
       <Button
         style={{
           backgroundColor: "#e2e8f0",
@@ -69,10 +70,7 @@ const FichaPacienteAdmin = () => {
       </Button>
 
       {/* DATOS DEL PACIENTE */}
-
-      <h2 style={{ color: "#6b21a8", marginBottom: "20px" }}>
-        Ficha de {paciente?.person?.name}
-      </h2>
+      <PageHeader title={`Ficha de ${paciente?.person?.name || ""}`} />
 
       <div
         style={{
@@ -109,7 +107,7 @@ const FichaPacienteAdmin = () => {
             {paciente?.person?.document}
           </p>
           <p>
-            <strong>CUIL/CUIT:</strong> {paciente?.cuilCuit || "—"}
+            <strong>CUIL/CUIT:</strong> {paciente?.person?.cuilCuit || "—"}
           </p>
         </div>
 

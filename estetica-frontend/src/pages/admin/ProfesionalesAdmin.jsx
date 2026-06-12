@@ -5,8 +5,11 @@ import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import { Input } from "../../components/ui/Input";
 import { useAuth } from "../../hooks/useAuth";
+import { useBanner } from "../../components/ui/Banner";
+import { PageHeader } from "../../components/ui/PageHeader";
 
-const TIPOS_DOC = ["DNI", "PASSPORT", "CUIL", "CUIT"];
+const TIPOS_DOC = ["DNI", "PASSPORT", "OTHER"];
+const DOC_LABEL = { DNI: "DNI", PASSPORT: "Pasaporte", OTHER: "Otro" };
 
 const ProfesionalesAdmin = () => {
   const [profesionales, setProfesionales] = useState([]);
@@ -33,13 +36,16 @@ const ProfesionalesAdmin = () => {
     bio: "",
     googleCalendarId: "",
     password: "",
+    cuilCuit: "",
   };
   const [formData, setFormData] = useState(formVacio);
 
   const [errorForm, setErrorForm] = useState("");
   const [cargandoForm, setCargandoForm] = useState(false);
+  const [confirmDataProf, setConfirmDataProf] = useState(null); // persona existente a asociar
 
   const { token } = useAuth();
+  const banner = useBanner();
   const navigate = useNavigate();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
@@ -77,6 +83,7 @@ const ProfesionalesAdmin = () => {
     setProfesionalEditandoId(null);
     setFormData(formVacio);
     setErrorForm("");
+    setConfirmDataProf(null);
     setModalFormAbierto(true);
   };
 
@@ -84,6 +91,7 @@ const ProfesionalesAdmin = () => {
     setModoEdicion(true);
     setProfesionalEditandoId(p.id);
     setErrorForm("");
+    setConfirmDataProf(null);
     setFormData({
       name: p.person?.name || p.name || "",
       documentType: p.person?.documentType || "DNI",
@@ -94,12 +102,17 @@ const ProfesionalesAdmin = () => {
       bio: p.bio || "",
       googleCalendarId: p.googleCalendarId || "",
       password: "",
+      cuilCuit: p.person?.cuilCuit || "",
     });
     setModalFormAbierto(true);
   };
 
-  const manejarGuardado = async (e) => {
+  const manejarGuardado = (e) => {
     e.preventDefault();
+    doGuardarProf(false);
+  };
+
+  const doGuardarProf = async (confirmLink) => {
     setErrorForm("");
     setCargandoForm(true);
     try {
@@ -119,11 +132,13 @@ const ProfesionalesAdmin = () => {
           specialty: formData.specialty,
           bio: formData.bio,
           googleCalendarId: formData.googleCalendarId,
+          cuilCuit: formData.cuilCuit,
         };
       } else {
         payload = { ...formData };
         if (!payload.bio) delete payload.bio;
         if (!payload.googleCalendarId) delete payload.googleCalendarId;
+        if (confirmLink) payload.confirmLink = true;
       }
 
       const respuesta = await fetch(url, {
@@ -136,9 +151,25 @@ const ProfesionalesAdmin = () => {
       });
 
       const datos = await respuesta.json();
+
+      // La persona ya existe (otro rol): pedimos confirmación en vez de cortar.
+      if (!respuesta.ok && datos.needsConfirmation) {
+        setConfirmDataProf(datos);
+        return;
+      }
       if (!respuesta.ok) throw new Error(datos.mensaje || datos.error || "Error al guardar.");
 
+      setConfirmDataProf(null);
       setModalFormAbierto(false);
+      banner.success(modoEdicion ? "Profesional actualizado" : "Profesional creado", {
+        details: [
+          ["Nombre", payload.name],
+          ["Especialidad", payload.specialty || "—"],
+          ["Documento", `${DOC_LABEL[payload.documentType] || payload.documentType || ""} ${payload.document || ""}`.trim() || "—"],
+          ["Teléfono", payload.phone || "—"],
+          ["CUIL/CUIT", payload.cuilCuit || "—"],
+        ],
+      });
       obtenerProfesionales();
     } catch (err) {
       setErrorForm(err.message);
@@ -171,9 +202,14 @@ const ProfesionalesAdmin = () => {
       }
 
       setModalEstadoAbierto(false);
+      const nombre = profesionalSeleccionado.person?.name || profesionalSeleccionado.name;
+      banner[estaActivo ? "warning" : "success"](
+        estaActivo ? "Profesional desactivado" : "Profesional reactivado",
+        { details: [["Profesional", nombre]] }
+      );
       obtenerProfesionales();
     } catch (err) {
-      alert(err.message);
+      banner.error(err.message);
     }
   };
 
@@ -181,11 +217,11 @@ const ProfesionalesAdmin = () => {
     return <p style={{ textAlign: "center", marginTop: "50px" }}>Cargando profesionales...</p>;
 
   return (
-    <div style={{ padding: "20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h2 style={{ color: "#6b21a8" }}>Gestión de Profesionales</h2>
-        <Button onClick={abrirModalCrear}>+ Nuevo Profesional</Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Gestión de Profesionales"
+        actions={<Button onClick={abrirModalCrear}>+ Nuevo Profesional</Button>}
+      />
 
       {error && (
         <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px" }}>
@@ -258,6 +294,26 @@ const ProfesionalesAdmin = () => {
         title={modoEdicion ? "Editar Profesional" : "Crear Nuevo Profesional"}
       >
         <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          {confirmDataProf && (
+            <div style={{ border: "1px solid #fde047", background: "#fef9c3", color: "#854d0e", borderRadius: 8, padding: "12px 14px" }}>
+              <div style={{ fontSize: 14, marginBottom: 8 }}>{confirmDataProf.mensaje}</div>
+              {confirmDataProf.person && (
+                <div style={{ fontSize: 12, marginBottom: 10 }}>
+                  {confirmDataProf.person.name} · {confirmDataProf.person.email || "sin email"}
+                  {confirmDataProf.person.isPatient ? " · ya es paciente" : ""}
+                  {confirmDataProf.person.isUser ? " · ya es usuario" : ""}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setConfirmDataProf(null)}>
+                  No, revisar
+                </Button>
+                <Button type="button" disabled={cargandoForm} onClick={() => doGuardarProf(true)}>
+                  {cargandoForm ? "Asociando..." : "Sí, asociar como profesional"}
+                </Button>
+              </div>
+            </div>
+          )}
           <Input
             type="text" placeholder="Nombre completo" autoComplete="off"
             value={formData.name}
@@ -271,7 +327,7 @@ const ProfesionalesAdmin = () => {
               onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
               style={{ padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1" }}
             >
-              {TIPOS_DOC.map((t) => <option key={t} value={t}>{t}</option>)}
+              {TIPOS_DOC.map((t) => <option key={t} value={t}>{DOC_LABEL[t]}</option>)}
             </select>
             <div style={{ flex: 1 }}>
               <Input
@@ -296,6 +352,12 @@ const ProfesionalesAdmin = () => {
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             required
+          />
+
+          <Input
+            type="text" placeholder="CUIL/CUIT (opcional)" autoComplete="off"
+            value={formData.cuilCuit}
+            onChange={(e) => setFormData({ ...formData, cuilCuit: e.target.value })}
           />
 
           <Input

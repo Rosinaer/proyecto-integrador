@@ -5,6 +5,8 @@ import { Modal } from "../../components/ui/Modal";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { useAuth } from "../../hooks/useAuth";
+import { useBanner } from "../../components/ui/Banner";
+import { PageHeader } from "../../components/ui/PageHeader";
 import {
   obtenerServicios,
   crearServicio,
@@ -42,6 +44,7 @@ const ServiciosAdmin = () => {
   const [cargandoForm, setCargandoForm] = useState(false);
 
   const { token } = useAuth();
+  const banner = useBanner();
 
   // Activos primero, luego inactivos; alfabético dentro de cada grupo (mismo patrón que Profesionales/Usuarios)
   const ordenarPorEstado = (lista) =>
@@ -139,6 +142,18 @@ const ServiciosAdmin = () => {
       }
       setModalFormAbierto(false);
 
+      const catNombre = categorias.find((c) => c.id === formData.categoryId)?.name || "—";
+      banner.success(modoEdicion ? "Servicio actualizado" : "Servicio creado", {
+        details: [
+          ["Nombre", payload.name],
+          ["Categoría", catNombre],
+          ["Duración", `${payload.defaultDurationMinutes} min`],
+          ["Pre-consulta", payload.requiresPreConsult ? "Sí" : "No"],
+          ["Estado", payload.active === false ? "Inactivo" : "Activo"],
+        ],
+        notes: payload.reminderNote || "",
+      });
+
       cargarServicios();
     } catch (err) {
       setErrorForm(err.message);
@@ -159,10 +174,10 @@ const ServiciosAdmin = () => {
       await desactivarServicio(servicioSeleccionado.id, token);
 
       setModalEliminarAbierto(false);
-
+      banner.warning("Servicio desactivado", { details: [["Servicio", servicioSeleccionado.name]] });
       cargarServicios();
     } catch (err) {
-      alert(err.message);
+      banner.error(err.message);
     }
   };
 
@@ -170,9 +185,10 @@ const ServiciosAdmin = () => {
   const reactivarServicio = async (servicio) => {
     try {
       await actualizarServicio(servicio.id, { active: true }, token);
+      banner.success("Servicio reactivado", { details: [["Servicio", servicio.name]] });
       cargarServicios();
     } catch (err) {
-      alert(err.message);
+      banner.error(err.message);
     }
   };
 
@@ -185,19 +201,12 @@ const ServiciosAdmin = () => {
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
-        <h2 style={{ color: "#6b21a8" }}>Gestión de Servicios</h2>
+    <div>
+      <PageHeader
+        title="Gestión de Servicios"
+        actions={<Button onClick={abrirModalCrear}>+ Nuevo Servicio</Button>}
+      />
 
-        <Button onClick={abrirModalCrear}>+ Nuevo Servicio</Button>
-      </div>
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       <Table
@@ -316,6 +325,7 @@ const ServiciosAdmin = () => {
 
           <Select
             value={formData.categoryId}
+            required
             onChange={(e) =>
               setFormData({
                 ...formData,

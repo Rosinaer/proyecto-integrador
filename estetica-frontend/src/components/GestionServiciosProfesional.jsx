@@ -1,13 +1,4 @@
-// ============================================================
-// GestionServiciosProfesional — alta / edición / baja lógica de los
-// servicios (precio + duración) de un profesional.
-// Ruta: src/components/GestionServiciosProfesional.jsx
-//
-// Se usa tanto en la Ficha del profesional como en la pestaña
-// "Servicios por Profesional". Maneja su propio estado y refresco.
-//
-//   <GestionServiciosProfesional professionalId={id} token={token} />
-// ============================================================
+
 
 import { useState, useEffect, useCallback } from "react";
 import { Table, Tr, Td } from "./ui/Table";
@@ -15,6 +6,7 @@ import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
+import { useBanner } from "./ui/Banner";
 import {
   obtenerServiciosDeProfesional,
   crearProfessionalService,
@@ -32,6 +24,7 @@ const moneda = (v) =>
 const esActivo = (ps) => ps.active !== false; // tolera registros viejos sin el campo
 
 export const GestionServiciosProfesional = ({ professionalId, token }) => {
+  const banner = useBanner();
   const [servicios, setServicios] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -141,6 +134,16 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
         );
       }
       setModalAbierto(false);
+      const nombreServ = modoEdicion
+        ? (psEditando?.service?.name || "Servicio")
+        : (catalogo.find((s) => s.id === form.serviceId)?.name || "Servicio");
+      banner.success(modoEdicion ? "Servicio del profesional actualizado" : "Servicio asignado al profesional", {
+        details: [
+          ["Servicio", nombreServ],
+          ["Precio", moneda(Number(form.price))],
+          ["Duración", `${Number(form.durationMinutes)} min`],
+        ],
+      });
       await cargar();
     } catch (err) {
       setErrorForm(err.response?.data?.mensaje || err.message);
@@ -154,10 +157,16 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
     try {
       await actualizarProfessionalService(ps.id, { active: activar }, token);
       setPsADesactivar(null);
+      banner[activar ? "success" : "warning"](
+        activar ? "Servicio reactivado" : "Servicio desactivado",
+        { details: [["Servicio", ps.service?.name || "—"]] }
+      );
       await cargar();
     } catch (err) {
       setPsADesactivar(null);
-      setError(err.response?.data?.mensaje || err.message);
+      const msg = err.response?.data?.mensaje || err.message;
+      setError(msg);
+      banner.error(msg);
     }
   };
 
@@ -275,6 +284,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
           ) : (
             <Select
               value={form.serviceId}
+              required
               onChange={(e) => onSelectService(e.target.value)}
               options={disponiblesParaAgregar.map((s) => ({
                 value: s.id,

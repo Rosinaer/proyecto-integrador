@@ -2,15 +2,6 @@
 // ESPACIO SENDA — TurnosAdmin.jsx  (pestaña "Turnos" / agenda)
 // Ruta: src/pages/admin/TurnosAdmin.jsx
 //
-//   • Vista Día / Semana / Panorama
-//       - Día:      columnas por profesional (eje horario vertical)
-//       - Semana:   columnas por día (eje horario vertical)
-//       - Panorama: una fila por profesional (eje horario horizontal)
-//   • Navegación de fechas (‹ Hoy ›) + salto con date picker
-//   • Checkboxes de profesionales (color por profesional)
-//   • Click en un turno → modal con el detalle completo
-//   • "+ Agendar Turno" reusa el ReservaTurno embebido
-//
 //   Las horas se guardan como "hora de pared" de la clínica etiquetada
 //   en UTC, así que todo el posicionamiento y formateo usa UTC.
 // ============================================================
@@ -21,6 +12,7 @@ import { Modal } from "../../components/ui/Modal";
 import { useAuth } from "../../hooks/useAuth";
 import { fechaClinicaStr } from "../../config/clinica";
 import ReservaTurno from "./ReservaTurno";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { useNavigate } from "react-router-dom";
 
 // ─── Constantes de la rejilla ─────────────────────────────────
@@ -29,11 +21,6 @@ const HORA_FIN = 21;   // última hora visible (21:00)
 const PX_MIN = 0.8;    // px por minuto (vistas verticales)
 const ALTO = (HORA_FIN - HORA_INI) * 60 * PX_MIN;
 const GUTTER = 52;     // ancho de la columna de horas
-
-// Panorama (eje horizontal)
-const PX_MIN_H = 1.25;                                    // px por minuto (horizontal)
-const PANO_NAME = 160;                                    // ancho columna de nombres
-const PANO_TOTAL = (HORA_FIN - HORA_INI) * 60 * PX_MIN_H; // ancho del eje de tiempo
 
 const PALETA = ["#7c3aed", "#0ea5e9", "#16a34a", "#ea580c", "#db2777", "#0d9488", "#ca8a04", "#4f46e5"];
 
@@ -55,6 +42,8 @@ const PAGO = {
   REFUNDED:  { label: "Reembolsado", bg: "#f1f5f9", fg: "#64748b" },
 };
 
+const CANCELADO = (s) => s === "CANCELLED" || s === "NO_SHOW";
+
 // ─── Helpers de fecha (todo en UTC = hora de pared) ───────────
 const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
@@ -75,7 +64,9 @@ const Badge = ({ map, value }) => {
   return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: c.bg, color: c.fg }}>{c.label}</span>;
 };
 
-// ─── Empaquetado de turnos que se superponen (lado a lado) ────
+// ─── Empaquetado de items que se superponen (lado a lado) ─────
+// Espera items con `startsAt` y `endsAt` (ISO). Sirve tanto para turnos
+// como para slots de disponibilidad (mapeando sus horas a esos campos).
 function empacar(items) {
   const evs = items
     .map((t) => ({ t, s: minutosDelDia(t.startsAt), e: minutosDelDia(t.endsAt) }))
@@ -103,7 +94,7 @@ function empacar(items) {
   return out;
 }
 
-// ─── Columna vertical (Día = un profesional, Semana = un día) ──
+// ─── Columna vertical de TURNOS (Día = un profesional, Semana = un día) ──
 const Columna = ({ items, colorDe, onPick }) => (
   <div style={{
     position: "relative", height: ALTO, borderLeft: "1px solid #e2e8f0",
@@ -113,7 +104,7 @@ const Columna = ({ items, colorDe, onPick }) => (
       const top = Math.max(0, (s - HORA_INI * 60) * PX_MIN);
       const height = Math.max(16, (e - s) * PX_MIN - 2);
       const color = colorDe[t.professionalService?.professional?.id] || "#6b21a8";
-      const cancel = t.status === "CANCELLED" || t.status === "NO_SHOW";
+      const cancel = CANCELADO(t.status);
       const w = 100 / lanes;
       return (
         <div key={t.id} onClick={() => onPick(t)} title={`${fmtHora(t.startsAt)} · ${t.patient?.person?.name || ""}`}
@@ -132,58 +123,102 @@ const Columna = ({ items, colorDe, onPick }) => (
   </div>
 );
 
-// ─── Vista Panorama (una fila por profesional, eje horizontal) ─
-const PanoramaVista = ({ profs, turnosDe, colorDe, onPick }) => {
-  const horas = Array.from({ length: HORA_FIN - HORA_INI + 1 }, (_, i) => HORA_INI + i);
+// ─── Columna vertical de COBERTURA (un día = bloques de disponibilidad) ──
+// Cada bloque es una franja de agenda abierta de un profesional. Se colorea
+// por profesional y, si tiene turnos cargados, los muestra como ocupación.
+const ColumnaCobertura = ({ slots, colorDe, nombreDe }) => {
+  // Mapeamos cada slot a la forma que entiende `empacar`.
+  const items = slots.map((s) => ({ ...s, startsAt: s.startTime, endsAt: s.endTime }));
+  return (
+    <div style={{
+      position: "relative", height: ALTO, borderLeft: "1px solid #e2e8f0",
+      backgroundImage: `repeating-linear-gradient(to bottom, #f1f5f9 0, #f1f5f9 1px, transparent 1px, transparent ${60 * PX_MIN}px)`,
+    }}>
+      {empacar(items).map(({ t, s, e, col, lanes }) => {
+        const top = Math.max(0, (s - HORA_INI * 60) * PX_MIN);
+        const height = Math.max(18, (e - s) * PX_MIN - 2);
+        const color = colorDe[t.professionalId] || "#6b21a8";
+        const ocupados = (t.appointments || []).filter((a) => !CANCELADO(a.status)).length;
+        const w = 100 / lanes;
+        return (
+          <div key={t.id}
+            title={`${nombreDe[t.professionalId] || ""} · ${fmtHora(t.startTime)}–${fmtHora(t.endTime)}${ocupados ? ` · ${ocupados} turno${ocupados === 1 ? "" : "s"}` : " · libre"}`}
+            style={{
+              position: "absolute", top, height, left: `calc(${w * col}% + 2px)`, width: `calc(${w}% - 4px)`,
+              background: `${color}14`, border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`,
+              borderRadius: 6, padding: "3px 6px", overflow: "hidden", fontSize: 11, lineHeight: 1.2,
+              boxSizing: "border-box",
+            }}>
+            <div style={{ fontWeight: 700, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {nombreDe[t.professionalId] || "—"}
+            </div>
+            <div style={{ color: "#475569", whiteSpace: "nowrap" }}>{fmtHora(t.startTime)}–{fmtHora(t.endTime)}</div>
+            {height > 50 && (
+              <div style={{ color: "#64748b" }}>
+                {ocupados > 0 ? `${ocupados} turno${ocupados === 1 ? "" : "s"}` : "libre"}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Vista Cobertura (semanal: columnas por día, eje horario vertical) ──
+const CoberturaVista = ({ dias, slots, colorDe, nombreDe }) => {
+  const horas = Array.from({ length: HORA_FIN - HORA_INI }, (_, i) => HORA_INI + i);
+  const minCol = 132;
+  const slotsDe = (d) => slots.filter((s) => s.fecha === d);
+  const hay = slots.length > 0;
+
   return (
     <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff" }}>
-      <div style={{ minWidth: PANO_NAME + PANO_TOTAL }}>
-        {/* Cabecera de horas */}
+      <div style={{ minWidth: GUTTER + dias.length * minCol }}>
+        {/* Cabecera de días */}
         <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, background: "#fff", zIndex: 2 }}>
-          <div style={{ width: PANO_NAME, flex: `0 0 ${PANO_NAME}px`, borderRight: "1px solid #e2e8f0" }} />
-          <div style={{ position: "relative", height: 28, width: PANO_TOTAL }}>
-            {horas.map((h) => (
-              <div key={h} style={{ position: "absolute", left: (h - HORA_INI) * 60 * PX_MIN_H, top: 7, fontSize: 11, color: "#94a3b8", transform: "translateX(-50%)" }}>{pad(h)}:00</div>
-            ))}
-          </div>
+          <div style={{ width: GUTTER, flex: `0 0 ${GUTTER}px` }} />
+          {dias.map((d) => {
+            const n = slotsDe(d).length;
+            const profsDelDia = new Set(slotsDe(d).map((s) => s.professionalId)).size;
+            const esHoy = d === fechaClinicaStr();
+            return (
+              <div key={d} style={{ flex: `1 0 ${minCol}px`, padding: "8px 6px", textAlign: "center", borderLeft: "1px solid #e2e8f0", background: esHoy ? "#f5f3ff" : "#fff" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {fmtFechaLarga(d)}
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                  {profsDelDia > 0 ? `${profsDelDia} prof. · ${n} franja${n === 1 ? "" : "s"}` : "sin agenda"}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Filas por profesional */}
-        {profs.map((p) => {
-          const packed = empacar(turnosDe(p.id));
-          const maxLanes = packed.reduce((m, x) => Math.max(m, x.lanes), 1);
-          const rowH = Math.max(48, 12 + maxLanes * 26);
-          const color = colorDe[p.id];
-          return (
-            <div key={p.id} style={{ display: "flex", borderBottom: "1px solid #f1f5f9" }}>
-              <div style={{ width: PANO_NAME, flex: `0 0 ${PANO_NAME}px`, padding: "8px 10px", borderRight: "1px solid #e2e8f0",
-                display: "flex", alignItems: "center", gap: 8, position: "sticky", left: 0, background: "#fff", zIndex: 1 }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, flex: "0 0 auto" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.person?.name}</span>
+        {/* Cuerpo */}
+        <div style={{ display: "flex" }}>
+          {/* Gutter de horas */}
+          <div style={{ width: GUTTER, flex: `0 0 ${GUTTER}px`, position: "relative", height: ALTO }}>
+            {horas.map((h) => (
+              <div key={h} style={{ position: "absolute", top: (h - HORA_INI) * 60 * PX_MIN - 6, right: 6, fontSize: 11, color: "#94a3b8" }}>
+                {pad(h)}:00
               </div>
-              <div style={{ position: "relative", width: PANO_TOTAL, height: rowH,
-                backgroundImage: `repeating-linear-gradient(to right, #f1f5f9 0, #f1f5f9 1px, transparent 1px, transparent ${60 * PX_MIN_H}px)` }}>
-                {packed.map(({ t, s, e, col }) => {
-                  const left = Math.max(0, (s - HORA_INI * 60) * PX_MIN_H);
-                  const width = Math.max(26, (e - s) * PX_MIN_H - 2);
-                  const cancel = t.status === "CANCELLED" || t.status === "NO_SHOW";
-                  return (
-                    <div key={t.id} onClick={() => onPick(t)} title={`${fmtHora(t.startsAt)} · ${t.patient?.person?.name || ""} · ${t.professionalService?.service?.name || ""}`}
-                      style={{ position: "absolute", left, width, top: 6 + col * 26, height: 22,
-                        background: `${color}1a`, borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "2px 6px",
-                        overflow: "hidden", whiteSpace: "nowrap", cursor: "pointer", fontSize: 11, lineHeight: "18px", boxSizing: "border-box", opacity: cancel ? 0.55 : 1 }}>
-                      <span style={{ fontWeight: 700, color }}>{fmtHora(t.startsAt)}</span>{" "}
-                      <span style={{ color: "#334155", textDecoration: cancel ? "line-through" : "none" }}>{t.patient?.person?.name || "—"}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            ))}
+          </div>
+          {/* Columnas por día */}
+          {dias.map((d) => (
+            <div key={d} style={{ flex: `1 0 ${minCol}px` }}>
+              <ColumnaCobertura slots={slotsDe(d)} colorDe={colorDe} nombreDe={nombreDe} />
             </div>
-          );
-        })}
-
-        {profs.length === 0 && <div style={{ padding: 30, textAlign: "center", color: "#94a3b8" }}>Elegí al menos un profesional.</div>}
+          ))}
+        </div>
       </div>
+
+      {!hay && (
+        <div style={{ padding: "30px 20px", textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
+          No hay agendas abiertas para esta semana. Generá la disponibilidad desde <strong>Agendas</strong>.
+        </div>
+      )}
     </div>
   );
 };
@@ -194,13 +229,17 @@ const TurnosAdmin = () => {
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-  const [vista, setVista] = useState("dia"); // 'dia' | 'semana' | 'panorama'
+  const [vista, setVista] = useState("dia"); // 'dia' | 'semana' | 'cobertura'
   const [ancla, setAncla] = useState(fechaClinicaStr()); // YYYY-MM-DD enfocado
   const [profesionales, setProfesionales] = useState([]);
   const [profSel, setProfSel] = useState([]); // ids seleccionados
   const [turnos, setTurnos] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [ocultarCancelados, setOcultarCancelados] = useState(true);
+
+  // Cobertura (disponibilidad / agendas abiertas)
+  const [slotsCob, setSlotsCob] = useState([]);
+  const [cargandoCob, setCargandoCob] = useState(false);
 
   const [detalle, setDetalle] = useState(null);
   const [modalNuevo, setModalNuevo] = useState(false);
@@ -221,26 +260,34 @@ const TurnosAdmin = () => {
     })();
   }, [token]);
 
-
   const esSemana = vista === "semana";
+  const esCobertura = vista === "cobertura";
+  // Día = un día; Semana y Cobertura = la semana (lun-dom) del ancla.
+  const semanal = esSemana || esCobertura;
 
-  // Rango visible (Día y Panorama = un día; Semana = lun-dom)
+  // Rango visible
   const rango = useMemo(() => {
-    if (!esSemana) return { ini: ancla, fin: ancla };
+    if (!semanal) return { ini: ancla, fin: ancla };
     const ini = lunesDe(ancla);
     return { ini, fin: addDays(ini, 6) };
-  }, [esSemana, ancla]);
+  }, [semanal, ancla]);
 
   const dias = useMemo(() => {
-    if (!esSemana) return [ancla];
+    if (!semanal) return [ancla];
     const ini = lunesDe(ancla);
     return Array.from({ length: 7 }, (_, i) => addDays(ini, i));
-  }, [esSemana, ancla]);
+  }, [semanal, ancla]);
 
-  // Color estable por profesional
+  // Color y nombre estables por profesional
   const colorDe = useMemo(() => {
     const m = {};
     profesionales.forEach((p, i) => { m[p.id] = PALETA[i % PALETA.length]; });
+    return m;
+  }, [profesionales]);
+
+  const nombreDe = useMemo(() => {
+    const m = {};
+    profesionales.forEach((p) => { m[p.id] = p.person?.name || "—"; });
     return m;
   }, [profesionales]);
 
@@ -257,9 +304,9 @@ const TurnosAdmin = () => {
       .catch(() => setProfesionales([]));
   }, [token]);
 
-  // ── Cargar turnos del rango visible ──
+  // ── Cargar turnos del rango visible (Día / Semana) ──
   const cargarTurnos = useCallback(async () => {
-    if (!token) return;
+    if (!token || esCobertura) return; // en Cobertura no usamos turnos
     setCargando(true);
     const desde = `${rango.ini}T00:00:00.000Z`;
     const hasta = `${rango.fin}T23:59:59.999Z`;
@@ -273,13 +320,57 @@ const TurnosAdmin = () => {
     } finally {
       setCargando(false);
     }
-  }, [token, apiUrl, headers, rango.ini, rango.fin]);
+  }, [token, apiUrl, headers, rango.ini, rango.fin, esCobertura]);
 
   useEffect(() => { cargarTurnos(); }, [cargarTurnos]);
 
+  // ── Cargar disponibilidad (Cobertura) ──
+  // El endpoint de disponibilidad es por profesional y por mes, así que pedimos
+  // cada profesional seleccionado para el/los mes(es) que toca la semana visible,
+  // y nos quedamos con los slots ACTIVOS cuyas fechas caen en la semana.
+  const cargarCobertura = useCallback(async () => {
+    if (!esCobertura || !token) return;
+    const ids = profesionales.filter((p) => profSel.includes(p.id)).map((p) => p.id);
+    if (ids.length === 0) { setSlotsCob([]); return; }
+
+    setCargandoCob(true);
+    const meses = new Map();
+    dias.forEach((d) => {
+      const [y, m] = d.split("-");
+      meses.set(`${y}-${Number(m)}`, { year: Number(y), month: Number(m) });
+    });
+    const diasSet = new Set(dias);
+
+    try {
+      const acc = [];
+      await Promise.all(
+        ids.flatMap((pid) =>
+          [...meses.values()].map(async ({ year, month }) => {
+            try {
+              const res = await fetch(`${apiUrl}/professionals/${pid}/availability?year=${year}&month=${month}`, { headers });
+              const data = await res.json();
+              if (Array.isArray(data)) {
+                data.forEach((s) => {
+                  if (s.active === false) return; // solo agendas abiertas (no archivadas)
+                  const fecha = String(s.date).slice(0, 10);
+                  if (diasSet.has(fecha)) acc.push({ ...s, professionalId: pid, fecha });
+                });
+              }
+            } catch { /* ignora ese profesional/mes */ }
+          }),
+        ),
+      );
+      setSlotsCob(acc);
+    } finally {
+      setCargandoCob(false);
+    }
+  }, [esCobertura, token, apiUrl, headers, profesionales, profSel, dias]);
+
+  useEffect(() => { cargarCobertura(); }, [cargarCobertura]);
+
   // ── Turnos visibles (filtro de profesionales + cancelados) ──
   const visibles = useMemo(() => turnos.filter((t) => {
-    if (ocultarCancelados && (t.status === "CANCELLED" || t.status === "NO_SHOW")) return false;
+    if (ocultarCancelados && CANCELADO(t.status)) return false;
     return profSel.includes(t.professionalService?.professional?.id);
   }), [turnos, profSel, ocultarCancelados]);
 
@@ -301,7 +392,7 @@ const TurnosAdmin = () => {
       }));
 
   // ── Navegación ──
-  const navegar = (signo) => setAncla((a) => addDays(a, signo * (esSemana ? 7 : 1)));
+  const navegar = (signo) => setAncla((a) => addDays(a, signo * (semanal ? 7 : 1)));
   const irHoy = () => setAncla(fechaClinicaStr());
 
   const toggleProf = (id) => setProfSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
@@ -310,7 +401,7 @@ const TurnosAdmin = () => {
 
   const horas = Array.from({ length: HORA_FIN - HORA_INI }, (_, i) => HORA_INI + i);
 
-  const tituloRango = esSemana
+  const tituloRango = semanal
     ? `${parseYmd(rango.ini).getUTCDate()} – ${parseYmd(rango.fin).getUTCDate()} ${MESES[parseYmd(rango.fin).getUTCMonth()].slice(0, 3)} ${parseYmd(rango.fin).getUTCFullYear()}`
     : fmtFechaLarga(ancla);
 
@@ -318,7 +409,16 @@ const TurnosAdmin = () => {
 
   return (
     <div>
-      {pendientesReprog > 0 && (
+      {/* ── Encabezado ── */}
+      <PageHeader
+        title="Turnera"
+        actions={
+          <Button onClick={() => setModalNuevo((v) => !v)}>
+            {modalNuevo ? "× Cerrar formulario" : "+ Agendar Turno"}
+          </Button>
+        }
+      />
+            {pendientesReprog > 0 && (
       <div
         onClick={() => navigate("/admin/reprogramar")}
         style={{
@@ -331,18 +431,25 @@ const TurnosAdmin = () => {
         <span style={{ fontWeight: 700, textDecoration: "underline" }}>Ir a la bandeja →</span>
       </div>
     )}
-      {/* ── Encabezado ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ color: "#6b21a8", margin: 0 }}>Agenda de Turnos</h2>
-        <Button onClick={() => setModalNuevo(true)}>+ Agendar Turno</Button>
-      </div>
+
+      {/* ── Formulario inline de nuevo turno (no modal: la agenda queda visible) ── */}
+      {modalNuevo && (
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 18, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3 style={{ color: "#6b21a8", margin: 0, fontSize: "1.05rem" }}>Agendar nuevo turno</h3>
+            <button type="button" onClick={() => setModalNuevo(false)}
+              style={{ background: "transparent", border: "none", color: "#94a3b8", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+          </div>
+          <ReservaTurno embedded onCreated={() => { cargarTurnos(); }} />
+        </div>
+      )}
 
       {/* ── Barra de controles ── */}
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {/* Vista */}
           <div style={{ display: "flex", border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden" }}>
-            {[["dia", "Día"], ["semana", "Semana"], ["panorama", "Panorama"]].map(([v, txt]) => (
+            {[["dia", "Día"], ["semana", "Semana"], ["cobertura", "Cobertura"]].map(([v, txt]) => (
               <button key={v} type="button" onClick={() => setVista(v)}
                 style={{ border: "none", padding: "7px 16px", fontSize: 13, cursor: "pointer",
                   background: vista === v ? "#6b21a8" : "#fff", color: vista === v ? "#fff" : "#475569", fontWeight: vista === v ? 700 : 400 }}>
@@ -363,10 +470,12 @@ const TurnosAdmin = () => {
           <input type="date" value={ancla} onChange={(e) => e.target.value && setAncla(e.target.value)}
             style={{ marginLeft: "auto", padding: "7px 10px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13 }} />
 
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#475569", cursor: "pointer" }}>
-            <input type="checkbox" checked={ocultarCancelados} onChange={(e) => setOcultarCancelados(e.target.checked)} />
-            Ocultar cancelados / no-show
-          </label>
+          {!esCobertura && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#475569", cursor: "pointer" }}>
+              <input type="checkbox" checked={ocultarCancelados} onChange={(e) => setOcultarCancelados(e.target.checked)} />
+              Ocultar cancelados / no-show
+            </label>
+          )}
         </div>
 
         {/* Profesionales */}
@@ -387,18 +496,28 @@ const TurnosAdmin = () => {
           <button type="button" onClick={todos} style={miniLink}>Todos</button>
           <button type="button" onClick={ninguno} style={miniLink}>Ninguno</button>
         </div>
+
+        {esCobertura && (
+          <div style={{ fontSize: 12, color: "#64748b", borderTop: "1px solid #f1f5f9", paddingTop: 10 }}>
+            Mostrando las <strong>agendas abiertas</strong> de la semana (no los turnos). Cada bloque es una franja de
+            disponibilidad; el detalle indica si está libre o cuántos turnos tiene cargados.
+          </div>
+        )}
       </div>
 
       {/* ── Rejilla ── */}
-      {cargando ? (
+      {esCobertura ? (
+        cargandoCob ? (
+          <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Cargando agendas…</p>
+        ) : profsVisibles.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "#94a3b8", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10 }}>
+            Elegí al menos un profesional para ver la cobertura.
+          </div>
+        ) : (
+          <CoberturaVista dias={dias} slots={slotsCob} colorDe={colorDe} nombreDe={nombreDe} />
+        )
+      ) : cargando ? (
         <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Cargando agenda…</p>
-      ) : vista === "panorama" ? (
-        <PanoramaVista
-          profs={profsVisibles}
-          turnosDe={(pid) => visibles.filter((t) => t.professionalService?.professional?.id === pid && fechaDe(t) === ancla)}
-          colorDe={colorDe}
-          onPick={setDetalle}
-        />
       ) : columnas.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px 20px", color: "#94a3b8", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10 }}>
           Elegí al menos un profesional para ver la agenda.
@@ -465,11 +584,6 @@ const TurnosAdmin = () => {
             )}
           </div>
         )}
-      </Modal>
-
-      {/* ── Modal nuevo turno ── */}
-      <Modal isOpen={modalNuevo} onClose={() => setModalNuevo(false)} title="Agendar Nuevo Turno">
-        <ReservaTurno embedded onCreated={() => { cargarTurnos(); setModalNuevo(false); }} />
       </Modal>
     </div>
   );

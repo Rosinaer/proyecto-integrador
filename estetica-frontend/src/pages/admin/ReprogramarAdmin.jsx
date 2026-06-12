@@ -1,25 +1,18 @@
-// ============================================================
-// ESPACIO SENDA — ReprogramarAdmin.jsx  (pestaña "Reprogramar")
-// Ruta: src/pages/admin/ReprogramarAdmin.jsx
-//
-// Bandeja de turnos que quedaron sin agenda (slot archivado).
-// Cada turno tiene rescheduleRequestedAt != null. Desde acá se:
-//   • Reprograma → elige nuevo día/horario (reusa el motor de slots)
-//                  → PATCH /appointments/:id/reschedule → sale de la bandeja
-//   • Cancela    → PATCH /appointments/:id/status {CANCELLED} → sale de la bandeja
-//
-// Las horas se muestran en hora de pared de la clínica (UTC).
-// ============================================================
-
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import { useAuth } from "../../hooks/useAuth";
+import { useBanner } from "../../components/ui/Banner";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 const PURPLE = "#6b21a8";
 const PURPLE_BG = "#f3e8ff";
 const BORDER = "#cbd5e1";
 const MUTED = "#94a3b8";
+
+const moneda = (v) => Number(v || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+const pagadoDe = (t) => (Array.isArray(t?.payments) ? t.payments : []).reduce((a, p) => a + (p.isRefund ? -1 : 1) * Number(p.amount), 0);
+const PAGO_LBL = { PENDING: "Pendiente", PARTIAL: "Parcial", COMPLETED: "Pagado", REFUNDED: "Reembolsado" };
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -27,7 +20,7 @@ const fmtHora = (iso) => new Date(iso).toLocaleTimeString("es-AR", { hour: "2-di
 const fmtFecha = (iso) => new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 const fmtFechaLarga = (iso) => new Date(iso).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
-// ── Mini calendario (idéntico al de la reserva: pinta solo días con turno) ──
+
 function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
   const diasSet = useMemo(() => new Set(dias), [dias]);
   const offset = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
@@ -122,7 +115,16 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo reprogramar");
-      onDone(`✓ Turno de ${turno.patient?.person?.name || ""} reprogramado para el ${fmtFecha(slotSel.startsAt)} a las ${fmtHora(slotSel.startsAt)}.`);
+      onDone({
+        startsAt: slotSel.startsAt,
+        paciente: turno.patient?.person?.name || "—",
+        servicio: turno.professionalService?.service?.name || "—",
+        profesional: turno.professionalService?.professional?.person?.name || "—",
+        antes: `${fmtFecha(turno.startsAt)} ${fmtHora(turno.startsAt)}`,
+        duracion,
+        total: turno.priceSnapshot,
+        pagado: pagadoDe(turno),
+      });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -179,6 +181,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
 // ════════════════════════════════════════════════════════════
 export default function ReprogramarAdmin() {
   const { token } = useAuth();
+  const banner = useBanner();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const headers = { Authorization: `Bearer ${token}` };
   const jsonHeaders = { "Content-Type": "application/json", ...headers };
@@ -188,7 +191,6 @@ export default function ReprogramarAdmin() {
   const [reprogramar, setReprogramar] = useState(null);
   const [cancelar, setCancelar] = useState(null);
   const [accionando, setAccionando] = useState(false);
-  const [ok, setOk] = useState("");
   const [error, setError] = useState("");
 
   const cargar = useCallback(async () => {
@@ -207,39 +209,48 @@ export default function ReprogramarAdmin() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const mostrarOk = (m) => { setOk(m); setTimeout(() => setOk(""), 5000); };
-
   const ejecutarCancelar = async () => {
     if (!cancelar) return;
     setAccionando(true);
     setError("");
+    const t = cancelar;
+    const pagado = pagadoDe(t);
     try {
-      const res = await fetch(`${API}/appointments/${cancelar.id}/status`, {
+      const res = await fetch(`${API}/appointments/${t.id}/status`, {
         method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ status: "CANCELLED" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo cancelar");
       setCancelar(null);
       await cargar();
-      mostrarOk("✓ Turno cancelado.");
+      window.dispatchEvent(new Event("senda:appointments-changed"));
+      banner.warning("Turno cancelado", {
+        details: [
+          ["Paciente", t.patient?.person?.name || "—"],
+          ["Servicio", t.professionalService?.service?.name || "—"],
+          ["Profesional", t.professionalService?.professional?.person?.name || "—"],
+          ["Era", `${fmtFecha(t.startsAt)} ${fmtHora(t.startsAt)}`],
+          ["Total", moneda(t.priceSnapshot)],
+          ["Pagado", moneda(pagado)],
+        ],
+        warnings: pagado > 0 ? [`Este turno tenía ${moneda(pagado)} pagado. El reembolso se gestiona desde la pestaña Turnos.`] : [],
+      });
     } catch (e) {
       setError(e.message);
       setCancelar(null);
+      banner.error(e.message);
     } finally {
       setAccionando(false);
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ color: PURPLE, margin: "0 0 6px 0" }}>Turnos a reprogramar</h2>
-        <p style={{ color: "#64748b", margin: 0 }}>
-          Turnos que quedaron sin agenda (su slot fue archivado). Reprogramalos a un nuevo horario o cancelalos.
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Turnos a reprogramar"
+        subtitle="Turnos que quedaron sin agenda (su slot fue archivado). Reprogramalos a un nuevo horario o cancelalos."
+      />
 
-      {ok && <div style={{ background: "#f0fdf4", border: "1px solid #86efac", color: "#14532d", borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 14 }}>{ok}</div>}
       {error && <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
       {cargando ? (
@@ -260,6 +271,13 @@ export default function ReprogramarAdmin() {
                   Era: {fmtFechaLarga(t.startsAt)} a las {fmtHora(t.startsAt)}
                   {t.rescheduleRequestedAt && <span> · pendiente desde {fmtFecha(t.rescheduleRequestedAt)}</span>}
                 </div>
+                <div style={{ fontSize: 12, color: "#475569", marginTop: 4, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <span>Total: <strong>{moneda(t.priceSnapshot)}</strong></span>
+                  <span>Pagado: <strong style={{ color: pagadoDe(t) > 0 ? "#166534" : MUTED }}>{moneda(pagadoDe(t))}</strong></span>
+                  <span>Pago: <strong>{PAGO_LBL[t.paymentStatus] || t.paymentStatus}</strong></span>
+                  {t.isOverbook && <span style={{ color: "#9a3412" }}>Sobreturno</span>}
+                </div>
+                {t.notes && <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>📝 {t.notes}</div>}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <Button onClick={() => setReprogramar(t)} style={{ fontSize: 13, padding: "7px 14px" }}>Reprogramar</Button>
@@ -275,7 +293,23 @@ export default function ReprogramarAdmin() {
           turno={reprogramar}
           token={token}
           onClose={() => setReprogramar(null)}
-          onDone={(msg) => { setReprogramar(null); cargar(); mostrarOk(msg); }}
+          onDone={(info) => {
+            setReprogramar(null);
+            cargar();
+            window.dispatchEvent(new Event("senda:appointments-changed"));
+            banner.success("Turno reprogramado", {
+              details: [
+                ["Paciente", info.paciente],
+                ["Servicio", info.servicio],
+                ["Profesional", info.profesional],
+                ["Antes", info.antes],
+                ["Ahora", `${fmtFecha(info.startsAt)} ${fmtHora(info.startsAt)}`],
+                ["Duración", `${info.duracion} min`],
+                ["Total", moneda(info.total)],
+                ["Pagado", moneda(info.pagado)],
+              ],
+            });
+          }}
         />
       )}
 
@@ -285,7 +319,13 @@ export default function ReprogramarAdmin() {
             <p style={{ marginTop: 0 }}>
               ¿Cancelar definitivamente el turno de <strong>{cancelar.patient?.person?.name}</strong> ({cancelar.professionalService?.service?.name})?
             </p>
-            <p style={{ fontSize: 12, color: MUTED }}>Si tenía seña, el reembolso se gestiona aparte desde la pestaña Turnos.</p>
+            <div style={{ fontSize: 13, color: "#475569", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 12px", margin: "8px 0" }}>
+              <div>Era: {fmtFecha(cancelar.startsAt)} {fmtHora(cancelar.startsAt)}</div>
+              <div>Total: <strong>{moneda(cancelar.priceSnapshot)}</strong> · Pagado: <strong style={{ color: pagadoDe(cancelar) > 0 ? "#166534" : MUTED }}>{moneda(pagadoDe(cancelar))}</strong></div>
+            </div>
+            {pagadoDe(cancelar) > 0 && (
+              <p style={{ fontSize: 12, color: "#9a3412" }}>⚠ Este turno tiene {moneda(pagadoDe(cancelar))} pagado. El reembolso se gestiona aparte desde la pestaña Turnos.</p>
+            )}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
               <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setCancelar(null)}>No</Button>
               <Button variant="danger" onClick={ejecutarCancelar} disabled={accionando}>

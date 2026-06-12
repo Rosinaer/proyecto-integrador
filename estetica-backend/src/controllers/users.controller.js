@@ -1,6 +1,73 @@
 import bcrypt from 'bcrypt';
 import prisma from '../config/prisma.js';
 
+// ── Perfil propio (cualquier usuario logueado, sobre sus propios datos) ──
+export const obtenerMiPerfil = async (req, res) => {
+  try {
+    const usuario = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { person: true },
+    });
+    if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
+
+    res.json({
+      id: usuario.id,
+      role: usuario.role,
+      active: usuario.active,
+      person: {
+        name: usuario.person.name,
+        email: usuario.person.email,
+        phone: usuario.person.phone,
+        document: usuario.person.document,
+        documentType: usuario.person.documentType,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const actualizarMiPerfil = async (req, res) => {
+  try {
+    const { name, email, phone, document, documentType } = req.body;
+
+    if (documentType) {
+      const documentTypesValidos = ["DNI", "PASSPORT", "OTHER"];
+      if (!documentTypesValidos.includes(documentType)) {
+        return res.status(400).json({ mensaje: `documentType debe ser uno de: ${documentTypesValidos.join(", ")}` });
+      }
+    }
+
+    const usuario = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
+
+    const actualizado = await prisma.people.update({
+      where: { id: usuario.peopleId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(email !== undefined && { email }),
+        ...(phone !== undefined && { phone }),
+        ...(document !== undefined && { document }),
+        ...(documentType !== undefined && { documentType }),
+      },
+    });
+
+    res.json({
+      id: usuario.id,
+      role: usuario.role,
+      person: {
+        name: actualizado.name,
+        email: actualizado.email,
+        phone: actualizado.phone,
+        document: actualizado.document,
+        documentType: actualizado.documentType,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const obtenerUsuarios = async (req, res) => {
   try {
     const usuarios = await prisma.user.findMany({
@@ -50,25 +117,68 @@ export const obtenerUsuarioPorId = async (req, res) => {
 
 export const crearUsuario = async (req, res) => {
   try {
-    const { nombre, email, document, documentType, phone, password, rol } = req.body;
+    const { nombre, email, document, documentType, phone, password, rol, cuilCuit, confirmLink } = req.body;
 
-    const existente = await prisma.people.findUnique({
-      where: { email }
+    // 1) El email es la credencial de login: no puede repetirse entre usuarios.
+    //    (Sí puede coincidir con el de un paciente que no tiene login.)
+    const yaEsUsuario = await prisma.people.findFirst({
+      where: { email, user: { isNot: null } }
     });
-
-    if (existente) {
-      return res.status(400).json({ mensaje: "El email ya está registrado" });
+    if (yaEsUsuario) {
+      return res.status(400).json({ mensaje: "El email ya está registrado para un usuario" });
     }
 
     const hash = await bcrypt.hash(password, 10);
 
+    // 2) Si se cargó un documento real, la identidad es ese documento: buscamos
+    //    si ya existe la persona para darle login en vez de duplicarla.
+    const docReal = document && document.trim() && document.trim() !== "00000000";
+    if (docReal) {
+      const tipo = documentType || "DNI";
+      const existente = await prisma.people.findFirst({
+        where: { documentType: tipo, document: document.trim() },
+        include: { user: true, patient: true, professional: true },
+      });
+
+      if (existente) {
+        if (existente.user) {
+          return res.status(400).json({ mensaje: "Esa persona ya tiene un usuario asociado" });
+        }
+        if (!confirmLink) {
+          return res.status(409).json({
+            needsConfirmation: true,
+            mensaje: `Ya existe una persona con ese documento: ${existente.name}. ¿Querés darle acceso (crear su usuario)?`,
+            person: {
+              id: existente.id,
+              name: existente.name,
+              email: existente.email,
+              documentType: existente.documentType,
+              document: existente.document,
+              isPatient: !!existente.patient,
+              isProfessional: !!existente.professional,
+            },
+          });
+        }
+        // Confirmado: se crea el usuario sobre la persona existente.
+        const user = await prisma.user.create({
+          data: { peopleId: existente.id, passwordHash: hash, role: rol },
+          include: { person: true },
+        });
+        return res.status(201).json({
+          id: user.id, nombre: user.person.name, email: user.person.email, rol: user.role,
+        });
+      }
+    }
+
+    // 3) Persona nueva (o sin documento cargado): se crea people + user.
     const nuevaPersona = await prisma.people.create({
       data: {
         name: nombre,
         email: email,
-        document: document || "00000000",
+        document: docReal ? document.trim() : "00000000",
         documentType: documentType || "DNI",
         phone: phone || "",
+        cuilCuit: cuilCuit ?? "",
         user: {
           create: {
             passwordHash: hash,

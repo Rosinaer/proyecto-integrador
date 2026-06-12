@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { GestionServiciosProfesional } from "../../components/GestionServiciosProfesional";
 import { GestionHorariosRecurrentes } from "../../components/GestionHorariosRecurrentes";
+import { PageHeader } from "../../components/ui/PageHeader";
 
 const FichaProfesionalAdmin = () => {
   const { id } = useParams();
@@ -46,7 +47,7 @@ const FichaProfesionalAdmin = () => {
   }
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div>
       <Button
         style={{ backgroundColor: "#e2e8f0", color: "#475569", marginBottom: "20px" }}
         onClick={() => navigate("/admin/profesionales")}
@@ -55,12 +56,16 @@ const FichaProfesionalAdmin = () => {
       </Button>
 
       {/* DATOS DEL PROFESIONAL */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-        <h2 style={{ color: "#6b21a8", margin: 0 }}>Ficha de {profesional?.person?.name}</h2>
-        <span style={{ color: profesional?.active ? "#16a34a" : "#d32f2f", fontWeight: "bold", fontSize: "14px" }}>
-          {profesional?.active ? "● Activo" : "○ Inactivo"}
-        </span>
-      </div>
+      <PageHeader
+        title={
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            Ficha de {profesional?.person?.name}
+            <span style={{ color: profesional?.active ? "#16a34a" : "#d32f2f", fontWeight: "bold", fontSize: "14px" }}>
+              {profesional?.active ? "● Activo" : "○ Inactivo"}
+            </span>
+          </span>
+        }
+      />
 
       <div
         style={{

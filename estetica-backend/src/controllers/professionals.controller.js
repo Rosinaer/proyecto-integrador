@@ -77,7 +77,9 @@ export const crearProfesional = async (req, res) => {
       specialty,
       bio,
       googleCalendarId,
-      password
+      password,
+      cuilCuit,
+      confirmLink
     } = req.body;
 
     if (!name || !documentType || !document || !email || !phone || !specialty || !password) {
@@ -86,7 +88,7 @@ export const crearProfesional = async (req, res) => {
       });
     }
 
-    const documentTypesValidos = ['DNI', 'PASSPORT', 'CUIL', 'CUIT'];
+    const documentTypesValidos = ['DNI', 'PASSPORT', 'OTHER'];
     if (!documentTypesValidos.includes(documentType)) {
       return res.status(400).json({
         mensaje: `documentType debe ser uno de: ${documentTypesValidos.join(', ')}`
@@ -95,13 +97,17 @@ export const crearProfesional = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Se verifica si ya existe un profesional con el mail
-    const existente = await prisma.people.findUnique({
+    // Se verifica si ya existe un profesional con ese documento (el email ya
+    // no es único). Se busca la persona por tipo+número de documento.
+    const existente = await prisma.people.findFirst({
       where: {
-        email
+        documentType: documentType || "DNI",
+        document,
       },
       include: {
-        professional: true
+        professional: true,
+        patient: true,
+        user: true,
       },
     });
 
@@ -109,11 +115,33 @@ export const crearProfesional = async (req, res) => {
       // Si ya existe el profesional no se crea
       if (existente.professional) {
         return res.status(409).json({
-          mensaje: 'Ya existe un profesional registrado con ese email'
+          mensaje: 'Ya existe un profesional registrado con ese documento'
         });
       }
 
-      // Si no existe el profesional pero si la persona, se crea solo el profesional asociado a esa persona
+      // La persona existe pero no es profesional: pedimos confirmación antes
+      // de asociarla (no la unimos en silencio).
+      if (!confirmLink) {
+        return res.status(409).json({
+          needsConfirmation: true,
+          mensaje: `Ya existe una persona con ese documento: ${existente.name}. ¿Querés registrarla también como profesional?`,
+          person: {
+            id: existente.id,
+            name: existente.name,
+            email: existente.email,
+            documentType: existente.documentType,
+            document: existente.document,
+            isPatient: !!existente.patient,
+            isUser: !!existente.user,
+          },
+        });
+      }
+
+      // Confirmado: se crea el profesional asociado a esa persona (y se
+      // completa cuilCuit en people si vino cargado).
+      if (cuilCuit !== undefined && cuilCuit !== "") {
+        await prisma.people.update({ where: { id: existente.id }, data: { cuilCuit } });
+      }
       const nuevoProfesional = await prisma.professional.create({
         data: {
           peopleId: existente.id,
@@ -142,6 +170,7 @@ export const crearProfesional = async (req, res) => {
         document,
         email,
         phone,
+        cuilCuit: cuilCuit ?? "",
         professional: {
           create: {
             specialty,
@@ -222,7 +251,7 @@ export const actualizarProfesional = async (req, res) => {
 
 
     if (documentType) {
-      const documentTypesValidos = ['DNI', 'PASSPORT', 'CUIL', 'CUIT'];
+      const documentTypesValidos = ['DNI', 'PASSPORT', 'OTHER'];
       if (!documentTypesValidos.includes(documentType)) {
         return res.status(400).json({
           mensaje: `documentType debe ser uno de: ${documentTypesValidos.join(', ')}`

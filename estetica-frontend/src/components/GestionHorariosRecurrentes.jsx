@@ -1,16 +1,9 @@
-// ============================================================
-// GestionHorariosRecurrentes — alta / edición / baja de horarios
-// recurrentes de un profesional.
-// Ruta: src/components/GestionHorariosRecurrentes.jsx
-//
-//   <GestionHorariosRecurrentes professionalId={id} token={token} />
-// ============================================================
-
 import { useState, useEffect, useCallback } from "react";
 import { Table, Tr, Td } from "./ui/Table";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { TimeInput24 } from "./ui/TimeInput24";
+import { useBanner } from "./ui/Banner";
 
 const DIAS_SEMANA = [
   { value: 0, label: "Domingo" },
@@ -32,7 +25,7 @@ const labelDia = (n) => DIAS_SEMANA.find((d) => d.value === n)?.label ?? `Día $
 
 const FORM_VACIO = { dayOfWeek: 1, startTime: "09:00", endTime: "17:00" };
 
-// ---- estilos reutilizables ----------------------------------
+
 const labelStyle = {
   display: "block",
   fontSize: "13px",
@@ -62,6 +55,7 @@ const cajaError = {
 };
 
 export const GestionHorariosRecurrentes = ({ professionalId, token }) => {
+  const banner = useBanner();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
   const [horarios, setHorarios] = useState([]);
@@ -132,7 +126,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token }) => {
       return;
     }
 
-    // Aviso de superposición contra los del mismo día (excluyendo el que se edita)
+
     const mismoDia = horarios.filter(
       (h) => h.dayOfWeek === Number(form.dayOfWeek) && h.id !== editandoId,
     );
@@ -165,6 +159,13 @@ export const GestionHorariosRecurrentes = ({ professionalId, token }) => {
       if (!res.ok) throw new Error(data.mensaje || data.error || "Error al guardar el horario");
       setModalAbierto(false);
       setEditandoId(null);
+      banner.success(esEdicion ? "Horario actualizado" : "Horario agregado", {
+        details: [
+          ["Día", labelDia(Number(form.dayOfWeek))],
+          ["Desde", formatHora(form.startTime)],
+          ["Hasta", formatHora(form.endTime)],
+        ],
+      });
       setForm(FORM_VACIO);
       await cargar();
     } catch (err) {
@@ -186,11 +187,14 @@ export const GestionHorariosRecurrentes = ({ professionalId, token }) => {
         const data = await res.json();
         throw new Error(data.mensaje || data.error || "Error al eliminar el horario");
       }
+      const lbl = aEliminar.label;
       setAEliminar(null);
+      banner.warning("Horario eliminado", { details: [["Horario", lbl]] });
       await cargar();
     } catch (err) {
       setAEliminar(null);
       setError(err.message);
+      banner.error(err.message);
     } finally {
       setAccionando(false);
     }

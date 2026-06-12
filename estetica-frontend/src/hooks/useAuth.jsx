@@ -15,15 +15,13 @@ export const AuthProvider = ({ children }) => {
     if (storedUser && storedUser !== "undefined") {
       try {
         setUser(JSON.parse(storedUser));
-        setToken(storedToken); // <-- GUARDAMOS EL TOKEN EN LA MEMORIA DE REACT
+        setToken(storedToken); 
       } catch (error) {
-        // Si el JSON está roto por algún motivo, limpiamos la memoria corrupta
         console.error("Error al leer el usuario de la memoria:", error);
         localStorage.removeItem("user");
         localStorage.removeItem("token");
       }
     } else if (storedUser === "undefined") {
-      // Si quedó el texto "undefined" atascado de una prueba vieja, lo borramos
       localStorage.removeItem("user");
     }
     

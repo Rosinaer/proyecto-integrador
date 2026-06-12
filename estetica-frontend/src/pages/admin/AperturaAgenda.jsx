@@ -1,23 +1,9 @@
-// ============================================================
-// ESPACIO SENDA — AperturaAgenda.jsx  (pestaña "Agendas")
-// Ruta: src/pages/admin/AperturaAgenda.jsx
-//
-// Funcionalidad (WF-08):
-//   • Selección de profesional + mes/año
-//   • Gestión de horarios recurrentes (CRUD recurringSchedule) con aviso de superposición
-//   • Generación y reversión de disponibilidad mensual
-//   • Tabla de slots generados con slot manual, borrado individual y archivado
-//
-// UI: el alta/edición de horario recurrente y de slot manual se hacen con
-//     paneles desplegables inline (no modales), para poder ver lo que ya está
-//     cargado mientras se carga/edita. Los borrados, el revertir y el archivar
-//     siguen con modal.
-// ============================================================
-
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { Table, Tr, Td } from "../../components/ui/Table";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
+import { useBanner } from "../../components/ui/Banner";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { TimeInput24 } from "../../components/ui/TimeInput24";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -42,8 +28,6 @@ const contarActivos = (slot) =>
     ? slot.appointments.filter((a) => ESTADOS_ACTIVOS.includes(a.status)).length
     : 0;
 
-// Cantidad total de turnos (de cualquier estado). Cualquier turno bloquea el borrado
-// del slot por la relación en la base, así que esto es lo que define si se puede eliminar.
 const contarTurnos = (slot) => (Array.isArray(slot.appointments) ? slot.appointments.length : 0);
 
 const extraerFecha = (str) => {
@@ -163,6 +147,8 @@ const AperturaAgenda = () => {
   const [mes, setMes] = useState(hoy.getMonth() + 1);
 
   const [profesionales, setProfesionales] = useState([]);
+  const banner = useBanner();
+  const profNombre = () => profesionales.find((p) => p.id === profSelId)?.person?.name || "—";
   const [horarios, setHorarios] = useState([]);
   const [slots, setSlots] = useState([]);
 
@@ -191,8 +177,9 @@ const AperturaAgenda = () => {
   const [horarioEditandoId, setHorarioEditandoId] = useState(null);
   const [slotEditandoId, setSlotEditandoId] = useState(null);
 
-  const mostrarOk    = (msg) => { setMensajeOk(msg);   setTimeout(() => setMensajeOk(""), 5000); };
-  const mostrarError = (msg) => { setErrorGlobal(msg); setTimeout(() => setErrorGlobal(""), 7000); };
+  // Mensajes al banner global persistente (no se borran solos).
+  const mostrarOk    = (msg) => banner.success(String(msg).replace(/^✓\s*/, ""));
+  const mostrarError = (msg) => banner.error(msg);
 
   const headers = useCallback((extra = {}) => ({
     Authorization: `Bearer ${token}`,
@@ -210,7 +197,6 @@ const AperturaAgenda = () => {
   };
 
   const abrirNuevoHorario = () => {
-    // El botón es toggle solo respecto del form "nuevo" de arriba.
     if (panelHorario && !horarioEditandoId) { cerrarPaneles(); return; }
     setPanelSlot(false);
     setSlotEditandoId(null);
@@ -230,7 +216,6 @@ const AperturaAgenda = () => {
   };
 
   const abrirNuevoSlot = () => {
-    // El botón es toggle solo respecto del form "nuevo" de arriba.
     if (panelSlot && !slotEditandoId) { cerrarPaneles(); return; }
     setPanelHorario(false);
     setHorarioEditandoId(null);
@@ -310,11 +295,10 @@ const AperturaAgenda = () => {
       setHorarios([]);
       setSlots([]);
     }
-    // Al cambiar de profesional / mes / año cerramos cualquier panel abierto
+
     cerrarPaneles();
   }, [profSelId, anio, mes]);
 
-  // ── Acción: crear o editar horario recurrente (con chequeo de superposición) ──
   const handleGuardarHorario = async () => {
     setErrorForm("");
     if (formHorario.startTime >= formHorario.endTime) {
@@ -322,8 +306,7 @@ const AperturaAgenda = () => {
       return;
     }
 
-    // Aviso de superposición contra los horarios ya cargados del mismo día,
-    // excluyendo el horario que se está editando.
+ 
     const mismoDia = horarios.filter(
       (h) => h.dayOfWeek === Number(formHorario.dayOfWeek) && h.id !== horarioEditandoId,
     );
@@ -409,7 +392,13 @@ const AperturaAgenda = () => {
       if (!res.ok) throw new Error(data.mensaje || data.error || "Error al generar disponibilidad");
       await cargarDisponibilidad(profSelId, anio, mes);
       const cantidad = data.slotsCreados ?? data.created ?? data.count ?? "—";
-      mostrarOk(`✓ Agenda de ${MESES[mes - 1]} ${anio} generada. Slots creados: ${cantidad}.`);
+      banner.success("Agenda mensual generada", {
+        details: [
+          ["Profesional", profNombre()],
+          ["Período", `${MESES[mes - 1]} ${anio}`],
+          ["Slots creados", String(cantidad)],
+        ],
+      });
     } catch (err) {
       mostrarError(err.message);
     } finally {
@@ -431,7 +420,14 @@ const AperturaAgenda = () => {
       if (!res.ok) throw new Error(data.mensaje || data.error || "Error al revertir disponibilidad");
       await cargarDisponibilidad(profSelId, anio, mes);
       const eliminados = data.slotsEliminados ?? data.deleted ?? "—";
-      mostrarOk(`✓ Apertura revertida. Slots libres eliminados: ${eliminados}. Los slots con turnos se conservaron.`);
+      banner.warning("Apertura revertida", {
+        details: [
+          ["Profesional", profNombre()],
+          ["Período", `${MESES[mes - 1]} ${anio}`],
+          ["Slots libres eliminados", String(eliminados)],
+        ],
+        warnings: ["Los slots con turnos se conservaron."],
+      });
     } catch (err) {
       mostrarError(err.message);
     } finally {
@@ -452,7 +448,15 @@ const AperturaAgenda = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensaje || data.error || "Error al archivar la agenda");
       await cargarDisponibilidad(profSelId, anio, mes);
-      mostrarOk(`✓ Agenda archivada. Slots archivados: ${data.slotsArchivados ?? 0}. Turnos a reprogramar: ${data.turnosAReprogramar ?? 0}.`);
+      window.dispatchEvent(new Event("senda:appointments-changed"));
+      banner.warning("Agenda del mes archivada", {
+        details: [
+          ["Profesional", profNombre()],
+          ["Período", `${MESES[mes - 1]} ${anio}`],
+          ["Slots archivados", String(data.slotsArchivados ?? 0)],
+          ["Turnos a reprogramar", String(data.turnosAReprogramar ?? 0)],
+        ],
+      });
     } catch (err) {
       mostrarError(err.message);
     } finally {
@@ -467,8 +471,7 @@ const AperturaAgenda = () => {
 
     const esEdicion = !!slotEditandoId;
 
-    // En alta validamos que la fecha caiga en el mes en curso.
-    // (En edición la fecha no se modifica, solo las horas.)
+
     if (!esEdicion) {
       const [y, m] = formSlot.date.split("-").map(Number);
       if (y !== anio || m !== mes) {
@@ -510,7 +513,14 @@ const AperturaAgenda = () => {
       setSlotEditandoId(null);
       setFormSlot(formSlotVacio);
       await cargarDisponibilidad(profSelId, anio, mes);
-      mostrarOk(esEdicion ? `✓ Slot del ${formatFecha(formSlot.date)} actualizado.` : `✓ Slot manual del ${formatFecha(formSlot.date)} agregado.`);
+      banner.success(esEdicion ? "Slot actualizado" : "Slot agregado", {
+        details: [
+          ["Profesional", profNombre()],
+          ["Fecha", formatFecha(formSlot.date)],
+          ["Desde", formatHora(formSlot.startTime)],
+          ["Hasta", formatHora(formSlot.endTime)],
+        ],
+      });
     } catch (err) {
       setErrorForm(err.message);
     } finally {
@@ -531,9 +541,16 @@ const AperturaAgenda = () => {
         const data = await res.json();
         throw new Error(data.mensaje || data.error || "Error al eliminar slot");
       }
+      const sl = slotAEliminar;
       setSlotAEliminar(null);
       await cargarDisponibilidad(profSelId, anio, mes);
-      mostrarOk("✓ Slot eliminado.");
+      banner.warning("Slot eliminado", {
+        details: [
+          ["Profesional", profNombre()],
+          ["Fecha", formatFecha(sl.date)],
+          ["Horario", `${formatHora(sl.startTime)} – ${formatHora(sl.endTime)}`],
+        ],
+      });
     } catch (err) {
       setSlotAEliminar(null);
       mostrarError(err.message);
@@ -553,9 +570,18 @@ const AperturaAgenda = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensaje || data.error || "Error al archivar el slot");
+      const sl = slotAArchivar;
       setSlotAArchivar(null);
       await cargarDisponibilidad(profSelId, anio, mes);
-      mostrarOk(`✓ Slot archivado. Turnos enviados a reprogramar: ${data.turnosAReprogramar ?? 0}.`);
+      window.dispatchEvent(new Event("senda:appointments-changed"));
+      banner.warning("Slot archivado", {
+        details: [
+          ["Profesional", profNombre()],
+          ["Fecha", formatFecha(sl.date)],
+          ["Horario", `${formatHora(sl.startTime)} – ${formatHora(sl.endTime)}`],
+          ["Turnos a reprogramar", String(data.turnosAReprogramar ?? 0)],
+        ],
+      });
     } catch (err) {
       setSlotAArchivar(null);
       mostrarError(err.message);
@@ -677,7 +703,7 @@ const AperturaAgenda = () => {
   // RENDER
   // ════════════════════════════════════════════════════════════
   return (
-    <div style={{ padding: "20px" }}>
+    <div>
 
       {/* Animación del desplegable inline */}
       <style>{`
@@ -695,15 +721,10 @@ const AperturaAgenda = () => {
       `}</style>
 
       {/* ── Encabezado ── */}
-      <div style={{ marginBottom: "24px" }}>
-        <h2 style={{ color: "#6b21a8", margin: "0 0 6px 0" }}>Agendas</h2>
-        <p style={{ color: "#64748b", fontSize: "1rem", margin: 0 }}>
-          Configurá los horarios recurrentes del profesional y generá la disponibilidad mensual.
-        </p>
-      </div>
-
-      {mensajeOk && <div style={S.alertOk}>{mensajeOk}</div>}
-      {errorGlobal && <div style={S.alertError}>{errorGlobal}</div>}
+      <PageHeader
+        title="Agendas"
+        subtitle="Configurá los horarios recurrentes del profesional y generá la disponibilidad mensual."
+      />
 
       {/* ── Selector de profesional + mes ── */}
       <div style={{ ...S.card, marginBottom: "24px" }}>
