@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
@@ -36,7 +35,7 @@ const CambiarPassword = () => {
     try {
       const token = localStorage.getItem("token");
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-      
+
       // Ajustado a tu ruta exacta de Node: PATCH /users/:id/password
       const respuesta = await fetch(`${apiUrl}/users/${user.id}/password`, {
         method: "PATCH",
@@ -67,19 +66,22 @@ const CambiarPassword = () => {
   };
 
   return (
-    <Layout title="Cambiar Mi Contraseña">
-      <div style={{ maxWidth: "500px", margin: "0 auto", marginTop: "20px" }}>
+    <div>
+      {/* Encabezado consistente con el resto del admin */}
+      <h2 style={{ color: "#6b21a8", margin: "0 0 20px", textAlign: "left" }}>Cambiar Mi Contraseña</h2>
+
+      <div style={{ maxWidth: "520px" }}>
         <Card>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
             {mensaje.texto && (
-              <div style={{ 
-                padding: '15px', 
-                borderRadius: '5px', 
-                textAlign: 'center',
-                backgroundColor: mensaje.tipo === 'error' ? '#ffebee' : '#e8f5e9',
-                color: mensaje.tipo === 'error' ? '#c62828' : '#2e7d32',
-                fontWeight: 'bold'
+              <div style={{
+                padding: "15px",
+                borderRadius: "5px",
+                textAlign: "center",
+                backgroundColor: mensaje.tipo === "error" ? "#ffebee" : "#e8f5e9",
+                color: mensaje.tipo === "error" ? "#c62828" : "#2e7d32",
+                fontWeight: "bold"
               }}>
                 {mensaje.texto}
               </div>
@@ -87,34 +89,34 @@ const CambiarPassword = () => {
 
             <div>
               <label style={labelStyle}>Contraseña Actual</label>
-              <Input 
-                type="password" 
-                name="passwordActual" 
-                value={formData.passwordActual} 
-                onChange={handleChange} 
-                required 
+              <Input
+                type="password"
+                name="passwordActual"
+                value={formData.passwordActual}
+                onChange={handleChange}
+                required
               />
             </div>
 
             <div>
               <label style={labelStyle}>Nueva Contraseña</label>
-              <Input 
-                type="password" 
-                name="passwordNueva" 
-                value={formData.passwordNueva} 
-                onChange={handleChange} 
-                required 
+              <Input
+                type="password"
+                name="passwordNueva"
+                value={formData.passwordNueva}
+                onChange={handleChange}
+                required
               />
             </div>
 
             <div>
               <label style={labelStyle}>Confirmar Nueva Contraseña</label>
-              <Input 
-                type="password" 
-                name="confirmarPassword" 
-                value={formData.confirmarPassword} 
-                onChange={handleChange} 
-                required 
+              <Input
+                type="password"
+                name="confirmarPassword"
+                value={formData.confirmarPassword}
+                onChange={handleChange}
+                required
               />
             </div>
 
@@ -124,16 +126,16 @@ const CambiarPassword = () => {
           </form>
         </Card>
       </div>
-    </Layout>
+    </div>
   );
 };
 
 const labelStyle = {
-  display: 'block',
-  marginBottom: '8px',
-  fontSize: '14px',
-  color: '#555',
-  fontWeight: 'bold'
+  display: "block",
+  marginBottom: "8px",
+  fontSize: "14px",
+  color: "#555",
+  fontWeight: "bold"
 };
 
 export default CambiarPassword;

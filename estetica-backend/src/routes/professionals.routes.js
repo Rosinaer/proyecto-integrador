@@ -18,6 +18,8 @@ import {
   crearSlotManual,
   actualizarSlot,
   eliminarSlot,
+  archivarSlot,
+  archivarMes,  
 } from '../controllers/availability.controller.js';
 import {
   obtenerBloqueos,
@@ -434,6 +436,8 @@ router.post('/:id/availability/generate', verificarToken, autorizarRoles(['ADMIN
  */
 router.post('/:id/availability', verificarToken, autorizarRoles(['ADMIN', 'PROFESSIONAL']), crearSlotManual);
 
+router.patch('/:id/availability/archive-month', verificarToken, autorizarRoles(['ADMIN', 'PROFESSIONAL']), archivarMes);
+router.patch('/:id/availability/:availabilityId/archive', verificarToken, autorizarRoles(['ADMIN', 'PROFESSIONAL']), archivarSlot);
 /**
  * @swagger
  * /api/professionals/{id}/availability/{availabilityId}:

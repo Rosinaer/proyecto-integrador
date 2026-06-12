@@ -23,6 +23,8 @@ import CategoriaServiciosAdmin from "./pages/admin/CategoriaServiciosAdmin";
 import ProfessionalServicesAdmin from "./pages/admin/ProfessionalServicesAdmin";
 import FichaProfesionalAdmin from "./pages/admin/FichaProfesionalAdmin";
 import ReportesAdmin from "./pages/admin/ReportesAdmin";
+import ReservaTurno from "./pages/admin/ReservaTurno";
+import ReprogramarAdmin from "./pages/admin/ReprogramarAdmin";
 
 
 // Páginas de Paciente (Comentado temporalmente por QA)
@@ -63,6 +65,8 @@ function App() {
           <Route path="categorias" element={<CategoriaServiciosAdmin />} />
           <Route path="servicios-profesional" element={<ProfessionalServicesAdmin />} />
           <Route path="profesionales/:id" element={<FichaProfesionalAdmin />} />
+          <Route path="reserva-turno" element={<ReservaTurno />} />
+          <Route path="reprogramar" element={<ReprogramarAdmin />} />
         </Route>
 
         {/* --- RUTAS DE PACIENTE (Comentadas temporalmente por QA) --- */}

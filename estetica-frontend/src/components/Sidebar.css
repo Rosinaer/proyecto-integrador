@@ -7,24 +7,57 @@
   position: fixed;
   left: 0;
   top: 0;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box; /* Asegura que el padding no estire el ancho total */
+  box-sizing: border-box; /* el padding no estira el ancho total */
+  transition: transform 0.25s ease;
+}
+
+/* --- ESTADOS ABIERTO / CERRADO (lo controla AdminLayout) --- */
+.sidebar.is-open {
+  transform: translateX(0);
+}
+.sidebar.is-closed {
+  transform: translateX(-100%);
+}
+
+/* --- ENCABEZADO DEL SIDEBAR (logo + botón colapsar) --- */
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
 }
 
 .logo {
-  margin-bottom: 30px;
-  color: #d8b4fe; 
+  margin: 0;
+  color: #d8b4fe;
   font-size: 1.5rem;
   font-weight: bold;
+}
+
+.sidebar-collapse {
+  background: transparent;
+  border: none;
+  color: #d8b4fe;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.sidebar-collapse:hover {
+  background: #374151;
 }
 
 .sidebar ul {
   list-style: none;
   padding: 0;
   margin: 0;
-  flex: 1; /* Esto hace que la lista de links ocupe el espacio disponible */
-  overflow-y: auto; /* Por si en el futuro agregás muchos más links */
+  flex: 1; /* la lista de links ocupa el espacio disponible */
+  overflow-y: auto; /* por si agregás más links */
 }
 
 .sidebar li {
@@ -41,13 +74,13 @@
   transition: all 0.2s ease;
 }
 
-/* --- ESTILO AL PASAR EL MOUSE (HOVER) --- */
+/* --- HOVER --- */
 .sidebar a:hover {
   background: #374151;
   color: #d8b4fe;
 }
 
-/* --- ESTILO PARA LA PESTAÑA ACTIVA --- */
+/* --- PESTAÑA ACTIVA --- */
 .sidebar a.active {
   background-color: #6b21a8;
   color: white;
@@ -70,7 +103,7 @@
   font-size: 0.9rem;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Corta el nombre con "..." si es muy largo */
+  text-overflow: ellipsis; /* corta el nombre con "..." si es largo */
 }
 
 .user-info span {
@@ -81,8 +114,8 @@
 
 /* --- BOTÓN SALIR --- */
 .logout {
-  margin-top: 20px; /* Separación fija del último link */
-  margin-bottom: 10px; /* Margen de seguridad inferior */
+  margin-top: 20px;
+  margin-bottom: 10px;
   width: 100%;
   padding: 12px;
   background: #ef4444;
@@ -92,9 +125,16 @@
   cursor: pointer;
   font-weight: bold;
   transition: background 0.2s;
-  flex-shrink: 0; /* Impide que el botón se achique si hay poco espacio */
+  flex-shrink: 0;
 }
 
 .logout:hover {
   background: #dc2626;
 }
+
+/* En desktop el botón de colapsar es opcional: si querés que el sidebar
+   quede siempre fijo en pantallas grandes, descomentá esto.
+@media (min-width: 769px) {
+  .sidebar-collapse { display: none; }
+}
+*/\

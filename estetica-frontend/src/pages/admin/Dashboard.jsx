@@ -15,6 +15,24 @@ import { Table, Tr, Td } from "../../components/ui/Table";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import { useAuth } from "../../hooks/useAuth";
+import { fechaClinicaStr } from "../../config/clinica";
+
+// ─── Formateadores de fecha/hora ─────────────────────────────
+const hora = (iso) =>
+  iso ? new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
+
+const fechaHora = (iso) =>
+  iso ? new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
+
+// fecha de pared de un instante guardado (para agrupar/contar por día)
+const fechaParedStr = (iso) => {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+};
+
+// "hoy" según la zona de la clínica, no la del navegador
+const hoyStr = () => fechaClinicaStr();
+
 
 // ─── Constantes de dominio ────────────────────────────────────
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -61,16 +79,11 @@ const TIPOS_PAGO = [
 // ─── Helpers ──────────────────────────────────────────────────
 const pad = (n) => String(n).padStart(2, "0");
 const localDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const hoyStr = () => localDateStr(new Date());
 
 const moneda = (v) =>
   Number(v || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 
-const hora = (iso) =>
-  iso ? new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "—";
 
-const fechaHora = (iso) =>
-  iso ? new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
 const nomProf = (t) => t?.professionalService?.professional?.person?.name ?? "—";
 const nomServ = (t) => t?.professionalService?.service?.name ?? "—";
@@ -167,8 +180,8 @@ const Dashboard = () => {
   const cargarKpis = useCallback(async () => {
     if (!token) return;
     setCargandoKpis(true);
-    const desde = new Date(kpiAnio, kpiMes - 1, 1, 0, 0, 0, 0).toISOString();
-    const hasta = new Date(kpiAnio, kpiMes, 0, 23, 59, 59, 999).toISOString();
+    const desde = new Date(Date.UTC(kpiAnio, kpiMes - 1, 1, 0, 0, 0, 0)).toISOString();
+    const hasta = new Date(Date.UTC(kpiAnio, kpiMes, 0, 23, 59, 59, 999)).toISOString();
     const q = new URLSearchParams({ desde, hasta });
     if (kpiProf) q.set("professionalId", kpiProf);
     try {
@@ -189,8 +202,8 @@ const Dashboard = () => {
     if (!token || !tablaDia) return;
     setCargandoTabla(true);
     const [y, m, d] = tablaDia.split("-").map(Number);
-    const desde = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
-    const hasta = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
+    const desde = new Date(`${tablaDia}T00:00:00.000Z`).toISOString();
+    const hasta = new Date(`${tablaDia}T23:59:59.999Z`).toISOString();
     const q = new URLSearchParams({ desde, hasta });
     if (tablaProf) q.set("professionalId", tablaProf);
     try {
@@ -211,7 +224,7 @@ const Dashboard = () => {
   // ── KPIs derivados ──
   const kpis = useMemo(() => {
     const hs = hoyStr();
-    const turnosHoy = kpiTurnos.filter((t) => localDateStr(new Date(t.startsAt)) === hs).length;
+    const turnosHoy = kpiTurnos.filter((t) => fechaParedStr(t.startsAt) === hs).length;
     const completados = kpiTurnos.filter((t) => t.status === "COMPLETED").length;
     const noShows     = kpiTurnos.filter((t) => t.status === "NO_SHOW").length;
     const base = completados + noShows;
@@ -277,7 +290,7 @@ const Dashboard = () => {
   // ════════════════════════════════════════════════════════════
   return (
     <div style={{ width: "100%", boxSizing: "border-box" }}>
-      <div style={{ marginBottom: "24px" }}>
+      <div style={{ marginBottom: "24px", textAlign: "center" }}>
         <h2 style={{ color: "#6b21a8", fontSize: "1.9rem", margin: "0 0 6px 0" }}>
           ¡Hola, {user?.person?.name || user?.name || "Admin"}! 👋
         </h2>
@@ -340,7 +353,7 @@ const Dashboard = () => {
       </div>
 
       <div style={{ marginBottom: "36px" }}>
-        <Button onClick={() => navigate("/admin/turnos")} style={{ padding: "12px 22px", fontSize: "15px" }}>
+        <Button onClick={() => navigate("/admin/reserva-turno")} style={{ padding: "12px 22px", fontSize: "15px" }}>
           + Reservar turno
         </Button>
       </div>

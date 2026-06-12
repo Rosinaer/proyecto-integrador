@@ -4,8 +4,11 @@ body {
   background: linear-gradient(to right, #f8f4ff, #fce4ec);
 }
 
+/* Antes: h2 { text-align: center } centraba TODOS los títulos.
+   Eso hacía que las páginas con encabezado "suelto" (Reportes, Agendas,
+   Reservar Turno, Cambiar Contraseña) se vieran centradas. Ahora quedan a
+   la izquierda como el resto del admin. */
 h2 {
-  text-align: center;
   color: #6a1b9a;
 }
 
@@ -65,3 +68,9 @@ td {
 tr:hover {
   background: #f3e5f5;
 }
+
+/* Las pantallas públicas (Login, Recuperar/Crear contraseña) sí quieren el
+   título centrado dentro de su tarjeta. Si las envolvés con una clase
+   .auth-card (o similar), podés re-centrar solo ahí:
+.auth-card h2 { text-align: center; }
+*/

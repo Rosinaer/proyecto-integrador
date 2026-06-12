@@ -236,7 +236,7 @@ model AvailabilityException {
 model Appointment {
   id                    String            @id @default(uuid()) @db.Uuid
   professionalServiceId String            @map("professional_service_id") @db.Uuid
-  availabilityId        String            @map("availability_id") @db.Uuid
+  availabilityId        String?           @map("availability_id") @db.Uuid
   patientId             String            @map("patient_id") @db.Uuid
   createdByUserId       String            @map("created_by_user_id") @db.Uuid
   startsAt              DateTime          @map("starts_at")
@@ -248,12 +248,14 @@ model Appointment {
   depositAmount         Decimal?          @db.Decimal(10, 2) @map("deposit_amount")
   paymentStatus         PaymentStatus     @default(PENDING) @map("payment_status")
   notes                 String?
+  isOverbook            Boolean           @default(false) @map("is_overbook")
+  rescheduleRequestedAt DateTime?         @map("reschedule_requested_at")
   googleEventId         String?           @map("google_event_id")
   googleSyncStatus      SyncStatus        @default(PENDING) @map("google_sync_status")
   createdAt             DateTime          @default(now()) @map("created_at")
 
   professionalService   ProfessionalService @relation(fields: [professionalServiceId], references: [id])
-  availability          Availability        @relation(fields: [availabilityId], references: [id])
+  availability          Availability?       @relation(fields: [availabilityId], references: [id])
   patient               Patient             @relation(fields: [patientId], references: [id])
   creator               User                @relation("CreatedBy", fields: [createdByUserId], references: [id])
   audits                AppointmentAudit[]

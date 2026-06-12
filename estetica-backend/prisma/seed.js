@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -91,58 +92,26 @@ async function main() {
     {
       name: "Bioestimulación cutánea",
       services: [
-        "Plasma rico en plaquetas", "Tratamiento de reposición de fibroblastos autólogos (Fcells)", 
-        "Ellansé (Policaprolactona)", "Profhilo (Ácido hialurónico)", "Radiesse (Hidroxiapatita de calcio)", 
-        "Hilos de policaprolactona", "Dermoray (tecnología arco de plasma)", "Carboxiterapia"
+        "Plasma rico en plaquetas", "Dermoray (tecnología arco de plasma)"
       ]
     },
     {
       name: "Armonización orofacial",
       services: [
-        "Toxina botulínica (Botox/Xeomin)", "Tratamiento del contorno mandibular con ácido hialurónico", 
-        "Tratamiento del tercio medio (pómulos, arco cigomático) con ácido hialurónico", 
-        "Tratamiento del mentón con ácido hialurónico", "Rinomodelación con ácido hialurónico", 
-        "Blefaroplastía no quirúrgica (Dermoray)", "Tratamiento de papada con enzimas recombinantes", "Láser CO2"
+        "Tratamiento del contorno mandibular con ácido hialurónico", "Rinomodelación con ácido hialurónico", 
+        "Blefaroplastía no quirúrgica (Dermoray)"
       ]
     },
     {
       name: "Dermatología estética",
       services: [
-        "Peeling químico", "Tratamiento del acné, rosácea y otras patologías dermatológicas", 
-        "Tratamiento de alopecías", "Tratamiento de la hiperhidrosis", "Mesoterapia", "Luz pulsada", 
-        "Depilación definitiva (Láser soprano)", "Láser CO2"
+        "Peeling químico", "Botox para arrugas dinámicas", "Toxina botulínica para bruxismo"
       ]
     },
     {
       name: "Clínica de la sonrisa",
       services: [
-        "Blanqueamiento dental", "Carillas dentales de resina", "Diseño de labios con ácido hialurónico", 
-        "Limpieza dental", "Tratamiento de sonrisa gingival con toxina botulínica", 
-        "Tratamiento del bruxismo con toxina botulínica"
-      ]
-    },
-    {
-      name: "Tratamientos corporales",
-      services: [
-        "Carboxiterapia subcutánea", "Mesoterapia", "Lipólisis química (enzimas recombinantes, fosfatidilcolina)", 
-        "Tratamiento de estrías (mesoterapia, Dermoray, Plasma rico en plaquetas)", 
-        "Tratamiento del PEFE (celulitis): subsición, Radiesse, mesoterapia, carboxiterapia, enzimas recombinantes"
-      ]
-    },
-    {
-      name: "Medicina ortomolecular, funcional e integrativa y salud cardiometabólica",
-      services: [
-        "Sesiones 1: 1", "Consultas Cardiometabolismo", "Suplementación oral", "Sueroterapias", 
-        "Deportistas, fatiga crónica, inflamación crónica, prevención para una longevidad saludable, salud metabólica, microbiota intestinal, SIBO"
-      ]
-    },
-    {
-      name: "Ginecología regenerativa",
-      services: [
-        "Biomodulación hormonal", "Pellet hormonal", "HIFU", 
-        "Tratamiento de la incontinencia de orina, sequedad vaginal, micosis recurrente", 
-        "Plasma rico en plaquetas", "Carboxiterapia", "Bioestimulación (aumento de la producción de colágeno y elastina)", 
-        "Tecnología arco de plasma", "Láser CO2"
+        "Blanqueamiento dental"
       ]
     }
   ];

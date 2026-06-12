@@ -50,17 +50,17 @@ const ProfessionalServicesAdmin = () => {
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
-        <h2 style={{ color: "#6b21a8" }}>Profesional</h2>
+    <div>
+      {/* Título arriba, alineado a la izquierda */}
+      <h2 style={{ color: "#6b21a8", margin: "0 0 16px", textAlign: "left" }}>
+        Servicios por Profesional
+      </h2>
 
+      {/* Selector del profesional, debajo del título */}
+      <div style={{ maxWidth: "360px", marginBottom: "24px" }}>
+        <label style={{ display: "block", fontSize: "13px", color: "#64748b", marginBottom: "6px" }}>
+          Profesional
+        </label>
         <Select
           value={profesionalSeleccionadoId}
           onChange={(e) => setProfesionalSeleccionadoId(e.target.value)}

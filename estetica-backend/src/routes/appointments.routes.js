@@ -1,10 +1,14 @@
 import express from 'express';
 import {
   obtenerHorariosDisponibles,
+  obtenerOpcionesPorServicio,
+  obtenerDiasDisponibles,
   obtenerTurnos,
   obtenerTurnoPorId,
   crearTurno,
+  crearSobreturno,
   cambiarEstadoTurno,
+  reprogramarTurno,
 } from '../controllers/appointments.controller.js';
 import verificarToken from '../middleware/verificarToken.js';
 import autorizarRoles from '../middleware/autorizarRoles.js';
@@ -50,7 +54,8 @@ const router = express.Router();
  *         description: Token inválido o ausente
  */
 router.get('/available-slots', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerHorariosDisponibles);
-
+router.get('/service-options', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerOpcionesPorServicio);
+router.get('/available-days', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerDiasDisponibles);
 /**
  * @swagger
  * /api/appointments:
@@ -90,7 +95,7 @@ router.get('/available-slots', verificarToken, autorizarRoles(['ADMIN', 'RECEPTI
  *       401:
  *         description: Token inválido o ausente
  */
-router.get('/',                verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerTurnos);
+router.get('/', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerTurnos);
 
 /**
  * @swagger
@@ -115,7 +120,51 @@ router.get('/',                verificarToken, autorizarRoles(['ADMIN', 'RECEPTI
  *       401:
  *         description: Token inválido o ausente
  */
-router.get('/:id',             verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerTurnoPorId);
+
+
+router.post('/overbook', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST']), crearSobreturno);
+router.post('/', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST']), crearTurno);
+
+/**
+ * @swagger
+ * /api/appointments/{id}/status:
+ *   patch:
+ *     summary: Cambiar el estado de un turno
+ *     tags:
+ *       - Turnos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [CONFIRMED, CANCELLED, COMPLETED, NO_SHOW, IN_PROGRESS]
+ *                 example: CONFIRMED
+ *     responses:
+ *       200:
+ *         description: Estado actualizado correctamente
+ *       400:
+ *         description: Transición de estado inválida
+ *       404:
+ *         description: Turno no encontrado
+ *       401:
+ *         description: Token inválido o ausente
+ */
+
+router.get('/:id', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), obtenerTurnoPorId);
 
 /**
  * @swagger
@@ -165,46 +214,10 @@ router.get('/:id',             verificarToken, autorizarRoles(['ADMIN', 'RECEPTI
  *       401:
  *         description: Token inválido o ausente
  */
-router.post('/',               verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST']), crearTurno);
 
-/**
- * @swagger
- * /api/appointments/{id}/status:
- *   patch:
- *     summary: Cambiar el estado de un turno
- *     tags:
- *       - Turnos
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - status
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [CONFIRMED, CANCELLED, COMPLETED, NO_SHOW, IN_PROGRESS]
- *                 example: CONFIRMED
- *     responses:
- *       200:
- *         description: Estado actualizado correctamente
- *       400:
- *         description: Transición de estado inválida
- *       404:
- *         description: Turno no encontrado
- *       401:
- *         description: Token inválido o ausente
- */
+
+
 router.patch('/:id/status',    verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']), cambiarEstadoTurno);
+router.patch('/:id/reschedule', verificarToken, autorizarRoles(['ADMIN', 'RECEPTIONIST']), reprogramarTurno);
 
 export default router;

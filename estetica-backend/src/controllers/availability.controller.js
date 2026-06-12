@@ -281,3 +281,87 @@ export const eliminarSlot = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+const ESTADOS_PEND = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'];
+
+// Archiva un slot (baja lógica) y manda sus turnos pendientes a la bandeja de reprogramación.
+export const archivarSlot = async (req, res) => {
+  try {
+    const { availabilityId } = req.params;
+
+    const slot = await prisma.availability.findUnique({
+      where: { id: availabilityId },
+      include: { appointments: { select: { id: true, status: true } } },
+    });
+    if (!slot) return res.status(404).json({ mensaje: 'Slot no encontrado' });
+
+    if (!await verificarProfesional(slot.professionalId, req.user)) {
+      return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
+    }
+
+    const pendientes = slot.appointments
+      .filter((a) => ESTADOS_PEND.includes(a.status))
+      .map((a) => a.id);
+
+    const marcados = await prisma.$transaction(async (tx) => {
+      await tx.availability.update({ where: { id: availabilityId }, data: { active: false } });
+      if (!pendientes.length) return 0;
+      const r = await tx.appointment.updateMany({
+        where: { id: { in: pendientes }, rescheduleRequestedAt: null },
+        data: { rescheduleRequestedAt: new Date() },
+      });
+      return r.count;
+    });
+
+    res.json({ mensaje: 'Slot archivado', turnosAReprogramar: marcados });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Archiva todos los slots con turnos del mes y manda sus pendientes a la bandeja.
+// (Los slots libres se eliminan con revertirDisponibilidad; esto es para los que tienen turnos.)
+export const archivarMes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { year, month } = req.body;
+    if (!year || !month) return res.status(400).json({ mensaje: 'year y month son obligatorios' });
+
+    if (!await verificarProfesional(id, req.user)) {
+      return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
+    }
+
+    const inicioMes = new Date(Date.UTC(year, month - 1, 1));
+    const finMes = new Date(Date.UTC(year, month, 0));
+
+    const slots = await prisma.availability.findMany({
+      where: { professionalId: id, date: { gte: inicioMes, lte: finMes }, appointments: { some: {} } },
+      include: { appointments: { select: { id: true, status: true } } },
+    });
+
+    const ids = slots.map((s) => s.id);
+    const pendientes = slots.flatMap((s) =>
+      s.appointments.filter((a) => ESTADOS_PEND.includes(a.status)).map((a) => a.id));
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      let slotsArchivados = 0;
+      if (ids.length) {
+        const r1 = await tx.availability.updateMany({ where: { id: { in: ids } }, data: { active: false } });
+        slotsArchivados = r1.count;
+      }
+      let marcados = 0;
+      if (pendientes.length) {
+        const r2 = await tx.appointment.updateMany({
+          where: { id: { in: pendientes }, rescheduleRequestedAt: null },
+          data: { rescheduleRequestedAt: new Date() },
+        });
+        marcados = r2.count;
+      }
+      return { slotsArchivados, marcados };
+    });
+
+    res.json({ mensaje: 'Agenda archivada', slotsArchivados: resultado.slotsArchivados, turnosAReprogramar: resultado.marcados });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

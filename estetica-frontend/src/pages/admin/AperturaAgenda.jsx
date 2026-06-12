@@ -6,11 +6,12 @@
 //   • Selección de profesional + mes/año
 //   • Gestión de horarios recurrentes (CRUD recurringSchedule) con aviso de superposición
 //   • Generación y reversión de disponibilidad mensual
-//   • Tabla de slots generados con slot manual y borrado individual
+//   • Tabla de slots generados con slot manual, borrado individual y archivado
 //
 // UI: el alta/edición de horario recurrente y de slot manual se hacen con
 //     paneles desplegables inline (no modales), para poder ver lo que ya está
-//     cargado mientras se carga/edita. Los borrados y el revertir siguen con modal.
+//     cargado mientras se carga/edita. Los borrados, el revertir y el archivar
+//     siguen con modal.
 // ============================================================
 
 import { useState, useEffect, useCallback, Fragment } from "react";
@@ -179,6 +180,7 @@ const AperturaAgenda = () => {
   const [modalRevertir, setModalRevertir] = useState(false);
   const [horarioAEliminar, setHorarioAEliminar] = useState(null); // { id, label }
   const [slotAEliminar, setSlotAEliminar] = useState(null);       // slot completo
+  const [slotAArchivar, setSlotAArchivar] = useState(null);       // slot completo
 
   // Formularios
   const formHorarioVacio = { dayOfWeek: 1, startTime: "09:00", endTime: "17:00" };
@@ -437,6 +439,27 @@ const AperturaAgenda = () => {
     }
   };
 
+  // ── Acción: archivar en masa los slots con turnos del mes ──
+  const handleArchivarMes = async () => {
+    setModalRevertir(false);
+    setAccionando(true);
+    try {
+      const res = await fetch(`${API}/professionals/${profSelId}/availability/archive-month`, {
+        method: "PATCH",
+        headers: headers(),
+        body: JSON.stringify({ year: anio, month: mes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al archivar la agenda");
+      await cargarDisponibilidad(profSelId, anio, mes);
+      mostrarOk(`✓ Agenda archivada. Slots archivados: ${data.slotsArchivados ?? 0}. Turnos a reprogramar: ${data.turnosAReprogramar ?? 0}.`);
+    } catch (err) {
+      mostrarError(err.message);
+    } finally {
+      setAccionando(false);
+    }
+  };
+
   // ── Acción: crear slot manual o editar sus horas ──
   const handleGuardarSlot = async () => {
     setErrorForm("");
@@ -513,6 +536,28 @@ const AperturaAgenda = () => {
       mostrarOk("✓ Slot eliminado.");
     } catch (err) {
       setSlotAEliminar(null);
+      mostrarError(err.message);
+    } finally {
+      setAccionando(false);
+    }
+  };
+
+  // ── Acción: archivar slot individual (vía modal de confirmación) ──
+  const ejecutarArchivarSlot = async () => {
+    if (!slotAArchivar) return;
+    setAccionando(true);
+    try {
+      const res = await fetch(`${API}/professionals/${profSelId}/availability/${slotAArchivar.id}/archive`, {
+        method: "PATCH",
+        headers: headers(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al archivar el slot");
+      setSlotAArchivar(null);
+      await cargarDisponibilidad(profSelId, anio, mes);
+      mostrarOk(`✓ Slot archivado. Turnos enviados a reprogramar: ${data.turnosAReprogramar ?? 0}.`);
+    } catch (err) {
+      setSlotAArchivar(null);
       mostrarError(err.message);
     } finally {
       setAccionando(false);
@@ -862,6 +907,7 @@ const AperturaAgenda = () => {
                   const cantTurnos = contarTurnos(s);
                   const cantActivos = contarActivos(s);
                   const conTurnos = cantTurnos > 0;
+                  const archivado = s.active === false;
                   const enEdicion = panelSlot && slotEditandoId === s.id;
                   return (
                     <Fragment key={s.id}>
@@ -870,16 +916,22 @@ const AperturaAgenda = () => {
                         style={
                           enEdicion
                             ? { backgroundColor: "#ede9fe", boxShadow: "inset 5px 0 0 #7c3aed" }
-                            : conTurnos
-                              ? { backgroundColor: "#fdf4ff" }
-                              : undefined
+                            : archivado
+                              ? { backgroundColor: "#f8fafc", opacity: 0.85 }
+                              : conTurnos
+                                ? { backgroundColor: "#fdf4ff" }
+                                : undefined
                         }
                       >
                         <Td><strong style={{ color: "#6b21a8" }}>{diaAbrev(s.date)}</strong></Td>
                         <Td>{formatFecha(s.date)}</Td>
                         <Td>{formatHora(s.startTime)}</Td>
                         <Td>{formatHora(s.endTime)}</Td>
-                        <Td><BadgeSlot conTurnos={conTurnos} /></Td>
+                        <Td>
+                          {archivado
+                            ? <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", backgroundColor: "#e2e8f0", color: "#475569" }}>Archivado</span>
+                            : <BadgeSlot conTurnos={conTurnos} />}
+                        </Td>
                         <Td>
                           {cantTurnos > 0 ? (
                             <span style={{ fontWeight: "600", color: "#6b21a8" }}>
@@ -906,6 +958,24 @@ const AperturaAgenda = () => {
                             >
                               ✎
                             </button>
+
+                            {/* Archivar: solo para slots con turnos que todavía no están archivados */}
+                            {conTurnos && (
+                              <button
+                                onClick={() => setSlotAArchivar(s)}
+                                disabled={accionando || archivado}
+                                title={archivado ? "Ya está archivado" : "Archivar: saca el slot de la agenda y manda sus turnos a reprogramar"}
+                                style={{
+                                  ...S.btnIconDelete,
+                                  fontSize: "13px",
+                                  color: (accionando || archivado) ? "#e2e8f0" : "#b45309",
+                                  cursor: (accionando || archivado) ? "not-allowed" : "pointer",
+                                }}
+                              >
+                                📦
+                              </button>
+                            )}
+
                             <button
                               onClick={() => setSlotAEliminar(s)}
                               disabled={accionando || conTurnos}
@@ -968,6 +1038,23 @@ const AperturaAgenda = () => {
         </div>
       </Modal>
 
+      {/* ══ MODAL: Confirmar archivar slot ══ */}
+      <Modal isOpen={!!slotAArchivar} onClose={() => setSlotAArchivar(null)} title="Archivar slot">
+        <p style={{ marginTop: 0 }}>
+          ¿Archivar el slot del <strong>{slotAArchivar ? formatFecha(slotAArchivar.date) : ""}</strong>
+          {" "}({slotAArchivar ? `${formatHora(slotAArchivar.startTime)}–${formatHora(slotAArchivar.endTime)}` : ""})?
+        </p>
+        <div style={S.alertInfo}>
+          El slot sale de la agenda (no se podrá reservar ahí) y sus <strong>turnos pendientes pasan a la bandeja de reprogramación</strong>. No se borra nada: los turnos se conservan.
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+          <Button type="button" style={S.btnCancel} onClick={() => setSlotAArchivar(null)}>Cancelar</Button>
+          <Button onClick={ejecutarArchivarSlot} disabled={accionando}>
+            {accionando ? "Archivando..." : "Sí, archivar"}
+          </Button>
+        </div>
+      </Modal>
+
       {/* ══ MODAL: Confirmar Revertir Apertura ══ */}
       <Modal isOpen={modalRevertir} onClose={() => setModalRevertir(false)} title="Revertir Apertura de Agenda">
         <div style={S.alertWarn}>
@@ -976,11 +1063,20 @@ const AperturaAgenda = () => {
         </div>
 
         {slotsConTurnos > 0 ? (
-          <div style={{ ...S.alertInfo, marginBottom: "16px" }}>
-            Los <strong>{slotsConTurnos} slot{slotsConTurnos !== 1 ? "s" : ""}</strong> que ya tienen turnos
-            (de cualquier estado) <strong>no se eliminan</strong>. Si necesitás liberar esos días, primero
-            gestioná los turnos desde la pestaña Turnos.
-          </div>
+          <>
+            <div style={{ ...S.alertInfo, marginBottom: "16px" }}>
+              Los <strong>{slotsConTurnos} slot{slotsConTurnos !== 1 ? "s" : ""}</strong> que ya tienen turnos
+              (de cualquier estado) <strong>no se eliminan</strong>. Podés archivarlos y mandar sus turnos
+              a la bandeja de reprogramación con el botón de abajo.
+            </div>
+            <Button
+              onClick={handleArchivarMes}
+              disabled={accionando}
+              style={{ width: "100%", marginBottom: "16px", backgroundColor: "#b45309" }}
+            >
+              📦 Archivar los {slotsConTurnos} slot{slotsConTurnos !== 1 ? "s" : ""} con turnos y mandarlos a reprogramar
+            </Button>
+          </>
         ) : (
           <div style={{ ...S.alertInfo, marginBottom: "16px" }}>
             Ningún slot tiene turnos. Se eliminarán los {slots.length} slots del mes.
