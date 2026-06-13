@@ -13,31 +13,32 @@ import iniciarRecordatorios from './src/utils/reminders.js';
 import remindersRoutes from './src/routes/reminders.routes.js';
 import errorHandler from './src/middleware/errorHandler.js';
 
+import iniciarSincronizacionGoogle from './src/utils/googleSync.js';
+import googleRoutes from './src/routes/google.routes.js';
+
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./src/config/swagger.js";
 
 const app = express();
 
-// --- CONFIGURACIÓN DE CORS (El patovica) ---
+
 const dominiosPermitidos = [
-  'http://localhost:5173', // Para cuando prueben el frontend con Vite
-  'http://localhost:3000', // Por si alguno usa Create React App
-  // Acá vamos a agregar la URL de Vercel cuando subamos el frontend
+  'http://localhost:5173',  
+  'http://localhost:3000',  
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permitimos peticiones sin origen (como Postman) o las que estén en nuestra lista
     if (!origin || dominiosPermitidos.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Bloqueado por CORS'));
     }
   },
-  credentials: true // Importante para que pasen los Tokens de autorización
+  credentials: true 
 }));
 
-// --- MIDDLEWARES GLOBALES ---
+
 app.use(express.json());
 
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -52,6 +53,7 @@ app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/reminders', remindersRoutes);
+app.use('/api/google', googleRoutes);
 
 // --- TEST ---
 app.get('/', (req, res) => {
@@ -65,22 +67,22 @@ app.use((req, res) => {
   });
 });
 
-// --- MANEJADOR DE ERRORES CENTRAL ---
-// Debe ir SIEMPRE al final. Captura todo lo que los controllers reenvían
-// vía next() (gracias a asyncHandler) y mapea errores de Prisma.
+
+
 app.use(errorHandler);
 
 // --- SERVIDOR ---
 const PORT = process.env.PORT || 3000;
 
-//  QA: Solo levantamos el puerto y los crons si NO estamos corriendo tests
+
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
   });
 
   iniciarRecordatorios();
+  iniciarSincronizacionGoogle();
 }
 
-// Exportamos la app para que Supertest pueda hacer sus simulaciones
+
 export default app;

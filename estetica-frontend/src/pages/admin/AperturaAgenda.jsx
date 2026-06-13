@@ -79,7 +79,7 @@ const S = {
     width: "100%", padding: "9px 10px", border: "1px solid #ccc", borderRadius: "6px",
     fontSize: "14px", boxSizing: "border-box",
   },
-  // Botón cancelar gris (idéntico al de Usuarios)
+ 
   btnCancel: { backgroundColor: "#e2e8f0", color: "#475569" },
   btnDanger: {
     width: "100%", marginTop: "8px", padding: "9px", fontSize: "13px",
@@ -91,7 +91,7 @@ const S = {
   alertWarn:  { backgroundColor: "#fffbeb", border: "1px solid #fbbf24", borderRadius: "8px", padding: "12px 16px", fontSize: "13px", color: "#92400e", marginBottom: "14px" },
   alertError: { backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "8px", padding: "12px 16px", fontSize: "13px", color: "#991b1b", marginBottom: "14px" },
   alertOk:    { backgroundColor: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px", padding: "12px 16px", fontSize: "13px", color: "#14532d", marginBottom: "14px" },
-  // Panel desplegable inline (reemplaza a los modales de alta/edición)
+  
   inlinePanel: {
     marginBottom: "16px",
     padding: "16px",
@@ -109,10 +109,8 @@ const S = {
   },
   inlinePanelTitle: { color: "#6b21a8", fontSize: "13px", fontWeight: "700" },
   fieldRow: { display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "12px" },
-  fieldCol: { flex: "1 1 130px", minWidth: "130px" },
-  // Sombra "de hover", reutilizada como sombra del bloque en edición
-  editShadow: "0 6px 18px rgba(124,58,237,0.28)",
-  // Contenedor que envuelve la fila + su form inline como un solo bloque resaltado
+  fieldCol: { flex: "1 1 130px", minWidth: "130px" }, 
+  editShadow: "0 6px 18px rgba(124,58,237,0.28)", 
   editGroup: {
     border: "2px solid #7c3aed",
     borderLeft: "5px solid #7c3aed",
@@ -121,8 +119,7 @@ const S = {
     overflow: "hidden",
   },
 };
-
-// ─── Badge de estado de slot ──────────────────────────────────
+ 
 const BadgeSlot = ({ conTurnos }) => (
   <span style={{
     display: "inline-block", padding: "2px 10px", borderRadius: "12px",
@@ -134,15 +131,11 @@ const BadgeSlot = ({ conTurnos }) => (
   </span>
 );
 
-// ════════════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ════════════════════════════════════════════════════════════════
+
 const AperturaAgenda = () => {
   const { token, user } = useAuth();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
-  // Si quien entra es un profesional, gestiona ÚNICAMENTE su propia agenda:
-  // fijamos su id y bloqueamos el selector (no puede operar sobre otros).
+ 
   const esProfesional = user?.role === "PROFESSIONAL";
   const miProfId = user?.professionalId || "";
 
@@ -164,16 +157,14 @@ const AperturaAgenda = () => {
 
   const [mensajeOk, setMensajeOk] = useState("");
   const [errorGlobal, setErrorGlobal] = useState("");
-
-  // Paneles inline (alta/edición) + modales de confirmación
+ 
   const [panelHorario, setPanelHorario] = useState(false);
   const [panelSlot, setPanelSlot] = useState(false);
   const [modalRevertir, setModalRevertir] = useState(false);
-  const [horarioAEliminar, setHorarioAEliminar] = useState(null); // { id, label }
-  const [slotAEliminar, setSlotAEliminar] = useState(null);       // slot completo
-  const [slotAArchivar, setSlotAArchivar] = useState(null);       // slot completo
-
-  // Formularios
+  const [horarioAEliminar, setHorarioAEliminar] = useState(null);  
+  const [slotAEliminar, setSlotAEliminar] = useState(null);      
+  const [slotAArchivar, setSlotAArchivar] = useState(null);       
+ 
   const formHorarioVacio = { dayOfWeek: 1, startTime: "09:00", endTime: "17:00" };
   const formSlotVacio    = { date: "", startTime: "09:00", endTime: "17:00" };
   const [formHorario, setFormHorario] = useState(formHorarioVacio);
@@ -181,8 +172,7 @@ const AperturaAgenda = () => {
   const [errorForm, setErrorForm] = useState("");
   const [horarioEditandoId, setHorarioEditandoId] = useState(null);
   const [slotEditandoId, setSlotEditandoId] = useState(null);
-
-  // Mensajes al banner global persistente (no se borran solos).
+ 
   const mostrarOk    = (msg) => banner.success(String(msg).replace(/^✓\s*/, ""));
   const mostrarError = (msg) => banner.error(msg);
 
@@ -191,8 +181,7 @@ const AperturaAgenda = () => {
     "Content-Type": "application/json",
     ...extra,
   }), [token]);
-
-  // ── Apertura / cierre de los paneles inline ──
+ 
   const cerrarPaneles = () => {
     setPanelHorario(false);
     setPanelSlot(false);
@@ -238,14 +227,10 @@ const AperturaAgenda = () => {
     setErrorForm("");
     setPanelSlot(true);
   };
-
-  // ── Fetch: profesionales ──
+ 
   useEffect(() => {
     if (!token) return;
 
-    // Un profesional no puede (ni necesita) listar a todos: la ruta /professionals
-    // es solo ADMIN/RECEPTIONIST, y además solo gestiona su propia agenda. Fijamos
-    // su id desde el login y nos saltamos el fetch.
     if (esProfesional) {
       if (miProfId) {
         setProfesionales([{ id: miProfId, person: { name: user?.person?.name || "Mi agenda" } }]);
@@ -269,8 +254,7 @@ const AperturaAgenda = () => {
     };
     fetchProfs();
   }, [token, esProfesional, miProfId]);
-
-  // ── Fetch: horarios recurrentes ──
+ 
   const cargarHorarios = useCallback(async (profId) => {
     if (!profId) return;
     setCargandoHorarios(true);
@@ -287,8 +271,7 @@ const AperturaAgenda = () => {
       setCargandoHorarios(false);
     }
   }, [API, headers]);
-
-  // ── Fetch: disponibilidad mensual ──
+ 
   const cargarDisponibilidad = useCallback(async (profId, y, m) => {
     if (!profId) return;
     setCargandoSlots(true);
@@ -368,8 +351,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: eliminar horario recurrente (vía modal de confirmación) ──
+ 
   const ejecutarEliminarHorario = async () => {
     if (!horarioAEliminar) return;
     setAccionando(true);
@@ -392,8 +374,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: generar disponibilidad mensual ──
+ 
   const handleGenerarDisponibilidad = async () => {
     if (horarios.length === 0) {
       mostrarError("Este profesional no tiene horarios recurrentes configurados. Agregá al menos uno antes de generar la agenda.");
@@ -423,8 +404,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: revertir disponibilidad mensual ──
+ 
   const handleRevertirDisponibilidad = async () => {
     setModalRevertir(false);
     setAccionando(true);
@@ -452,8 +432,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: archivar en masa los slots con turnos del mes ──
+ 
   const handleArchivarMes = async () => {
     setModalRevertir(false);
     setAccionando(true);
@@ -481,8 +460,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: crear slot manual o editar sus horas ──
+ 
   const handleGuardarSlot = async () => {
     setErrorForm("");
     if (!formSlot.date) { setErrorForm("Seleccioná una fecha."); return; }
@@ -545,8 +523,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: eliminar slot individual (vía modal de confirmación) ──
+ 
   const ejecutarEliminarSlot = async () => {
     if (!slotAEliminar) return;
     setAccionando(true);
@@ -576,8 +553,7 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Acción: archivar slot individual (vía modal de confirmación) ──
+ 
   const ejecutarArchivarSlot = async () => {
     if (!slotAArchivar) return;
     setAccionando(true);
@@ -607,21 +583,17 @@ const AperturaAgenda = () => {
       setAccionando(false);
     }
   };
-
-  // ── Datos derivados ──
+ 
   const profSeleccionado = profesionales.find((p) => p.id === profSelId);
   const slotsConTurnos = slots.filter((s) => contarTurnos(s) > 0).length;
   const nombresDelMes = `${MESES[mes - 1]} ${anio}`;
 
   const getNombreProf = (p) => p?.person?.name ?? p?.name ?? p?.nombre ?? "Sin nombre";
   const getEmailProf  = (p) => p?.person?.email ?? p?.email ?? "";
-
-  // Límites del input de fecha del slot manual → solo el mes en curso
+ 
   const minFecha = `${anio}-${String(mes).padStart(2, "0")}-01`;
   const maxFecha = `${anio}-${String(mes).padStart(2, "0")}-${String(new Date(anio, mes, 0).getDate()).padStart(2, "0")}`;
-
-  // ── Forms inline reutilizables ──
-  // wrap permite ajustar márgenes según dónde se rendericen (arriba = alta, debajo de fila = edición).
+ 
   const renderPanelHorario = (wrap = {}) => (
     <div style={{ ...S.inlinePanel, ...wrap }}>
       <div style={S.inlinePanelHeader}>
@@ -716,14 +688,10 @@ const AperturaAgenda = () => {
       </div>
     </div>
   );
-
-  // ════════════════════════════════════════════════════════════
-  // RENDER
-  // ════════════════════════════════════════════════════════════
+ 
   return (
     <div>
-
-      {/* Animación del desplegable inline */}
+ 
       <style>{`
         @keyframes senda-slide-down {
           from { opacity: 0; transform: translateY(-6px); }
@@ -737,14 +705,12 @@ const AperturaAgenda = () => {
         .senda-slot-table tr.senda-edit-row > td { border-bottom: none; }
         .senda-slot-table tr.senda-edit-row:hover > td { background-color: transparent; }
       `}</style>
-
-      {/* ── Encabezado ── */}
+ 
       <PageHeader
         title="Agendas"
         subtitle="Configurá los horarios recurrentes del profesional y generá la disponibilidad mensual."
       />
-
-      {/* ── Selector de profesional + mes ── */}
+ 
       <div style={{ ...S.card, marginBottom: "24px" }}>
         <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "2", minWidth: "220px" }}>
@@ -811,8 +777,7 @@ const AperturaAgenda = () => {
                 {panelHorario && !horarioEditandoId ? "× Cerrar" : "+ Agregar"}
               </Button>
             </div>
-
-            {/* Form inline ARRIBA: solo al crear un horario nuevo */}
+ 
             {panelHorario && !horarioEditandoId && renderPanelHorario()}
 
             {cargandoHorarios ? (
@@ -865,8 +830,7 @@ const AperturaAgenda = () => {
                           </button>
                         </div>
                       </div>
-
-                      {/* Form de EDICIÓN desplegado justo debajo de la fila */}
+ 
                       {enEdicion && renderPanelHorario({ marginBottom: 0, marginTop: 0, border: "none", borderRadius: 0 })}
                       </div>
                     </Fragment>
@@ -902,8 +866,7 @@ const AperturaAgenda = () => {
               )}
             </div>
           </div>
-
-          {/* ── Columna derecha: disponibilidad generada ── */}
+ 
           <div>
             <div style={S.sectionHeader}>
               <h3 style={S.sectionTitle}>Agenda Generada — {nombresDelMes}</h3>
@@ -923,8 +886,7 @@ const AperturaAgenda = () => {
                 </Button>
               </div>
             </div>
-
-            {/* Form inline ARRIBA: solo al crear un día manual nuevo */}
+ 
             {panelSlot && !slotEditandoId && renderPanelSlot()}
 
             {cargandoSlots ? (
@@ -997,8 +959,7 @@ const AperturaAgenda = () => {
                             >
                               ✎
                             </button>
-
-                            {/* Archivar: solo para slots con turnos que todavía no están archivados */}
+ 
                             {conTurnos && (
                               <button
                                 onClick={() => setSlotAArchivar(s)}
@@ -1030,8 +991,7 @@ const AperturaAgenda = () => {
                           </div>
                         </Td>
                       </Tr>
-
-                      {/* Form de EDICIÓN desplegado en una fila debajo del slot */}
+ 
                       {enEdicion && (
                         <tr>
                           <td colSpan={7} style={{
@@ -1054,8 +1014,7 @@ const AperturaAgenda = () => {
           </div>
         </div>
       )}
-
-      {/* ══ MODAL: Confirmar eliminar horario recurrente ══ */}
+ 
       <Modal isOpen={!!horarioAEliminar} onClose={() => setHorarioAEliminar(null)} title="Confirmar">
         <p>¿Eliminar el horario recurrente del <strong>{horarioAEliminar?.label}</strong>?</p>
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
@@ -1065,8 +1024,7 @@ const AperturaAgenda = () => {
           </Button>
         </div>
       </Modal>
-
-      {/* ══ MODAL: Confirmar eliminar slot ══ */}
+ 
       <Modal isOpen={!!slotAEliminar} onClose={() => setSlotAEliminar(null)} title="Confirmar">
         <p>¿Eliminar el slot del <strong>{slotAEliminar ? formatFecha(slotAEliminar.date) : ""}</strong> ({slotAEliminar ? `${formatHora(slotAEliminar.startTime)}–${formatHora(slotAEliminar.endTime)}` : ""})?</p>
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
@@ -1076,8 +1034,7 @@ const AperturaAgenda = () => {
           </Button>
         </div>
       </Modal>
-
-      {/* ══ MODAL: Confirmar archivar slot ══ */}
+ 
       <Modal isOpen={!!slotAArchivar} onClose={() => setSlotAArchivar(null)} title="Archivar slot">
         <p style={{ marginTop: 0 }}>
           ¿Archivar el slot del <strong>{slotAArchivar ? formatFecha(slotAArchivar.date) : ""}</strong>
@@ -1093,8 +1050,7 @@ const AperturaAgenda = () => {
           </Button>
         </div>
       </Modal>
-
-      {/* ══ MODAL: Confirmar Revertir Apertura ══ */}
+ 
       <Modal isOpen={modalRevertir} onClose={() => setModalRevertir(false)} title="Revertir Apertura de Agenda">
         <div style={S.alertWarn}>
           <strong>Esta acción eliminará todos los slots libres (sin turnos)</strong> de {nombresDelMes}

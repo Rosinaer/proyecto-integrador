@@ -5,29 +5,17 @@ import { INSTITUCION } from '../constants/institucion.js';
 import { linkWhatsApp } from './whatsapp.js';
 
 const TZ = 'America/Argentina/Buenos_Aires';
-
-const ahoraPared = () => {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  })
-    .formatToParts(new Date())
-    .reduce((o, x) => ((o[x.type] = x.value), o), {});
-  return new Date(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`);
-};
-
-
+ 
 const fmtFecha = (d) =>
   new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   }).format(new Date(d));
 
 const fmtHora = (d) =>
   new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(d)) + ' hs';
-
+ 
 const datosTurno = (turno) => ({
   paciente: turno.patient?.person?.name || 'Paciente',
   telefono: turno.patient?.person?.phone || '',
@@ -44,7 +32,7 @@ const pieInstitucion = () =>
   [INSTITUCION.nombre, INSTITUCION.direccion, INSTITUCION.telefono]
     .filter(Boolean)
     .join(' · ');
-
+ 
 const textoRecordatorio = (d) => {
   const lineas = [
     `Hola ${d.paciente}! Te recordamos tu turno en ${INSTITUCION.nombre}:`,
@@ -56,12 +44,12 @@ const textoRecordatorio = (d) => {
   lineas.push('Si necesitás cancelar o reprogramar, avisanos. ¡Te esperamos!');
   return lineas.join('\n');
 };
-
+ 
 const enviarEmailPaciente = async (turno) => {
   const d = datosTurno(turno);
   if (!d.emailPaciente) {
     console.warn(`✉️  Paciente sin email; se omite recordatorio del turno ${turno.id}`);
-    return { channel: 'EMAIL', skipped: true, reason: 'El paciente no tiene email cargado' };
+    return;
   }
 
   try {
@@ -92,21 +80,19 @@ const enviarEmailPaciente = async (turno) => {
       data: { appointmentId: turno.id, channel: 'EMAIL', status: 'SENT' },
     });
     console.log(`✅ Recordatorio al paciente enviado (${d.emailPaciente}) · turno ${turno.id}`);
-    return { channel: 'EMAIL', status: 'SENT', to: d.emailPaciente };
   } catch (error) {
     await prisma.reminderLog.create({
       data: { appointmentId: turno.id, channel: 'EMAIL', status: 'FAILED' },
     });
     console.error(`❌ Falló recordatorio al paciente · turno ${turno.id}:`, error.message);
-    return { channel: 'EMAIL', status: 'FAILED', error: error.message };
   }
 };
-
+ 
 const enviarEmailProfesional = async (turno) => {
   const d = datosTurno(turno);
   if (!d.emailProfesional) {
     console.warn(`✉️  Profesional sin email; se omite aviso del turno ${turno.id}`);
-    return { channel: 'WHATSAPP', skipped: true, reason: 'La profesional no tiene email cargado' };
+    return;
   }
 
   const mensajeWa = textoRecordatorio(d);
@@ -156,49 +142,19 @@ const enviarEmailProfesional = async (turno) => {
       data: { appointmentId: turno.id, channel: 'WHATSAPP', status: 'SENT' },
     });
     console.log(`✅ Aviso a la profesional enviado (${d.emailProfesional}) · turno ${turno.id}`);
-    return { channel: 'WHATSAPP', status: 'SENT', to: d.emailProfesional, waLink: link };
   } catch (error) {
     await prisma.reminderLog.create({
       data: { appointmentId: turno.id, channel: 'WHATSAPP', status: 'FAILED' },
     });
     console.error(`❌ Falló aviso a la profesional · turno ${turno.id}:`, error.message);
-    return { channel: 'WHATSAPP', status: 'FAILED', error: error.message };
   }
 };
-
-const turnoParaRecordatorio = (id) =>
-  prisma.appointment.findUnique({
-    where: { id },
-    include: {
-      patient: { include: { person: true } },
-      professionalService: {
-        include: {
-          professional: { include: { person: true } },
-          service: true,
-        },
-      },
-    },
-  });
-
-
-export const enviarRecordatorioTurno = async (appointmentId) => {
-  const turno = await turnoParaRecordatorio(appointmentId);
-  if (!turno) return { ok: false, error: 'Turno no encontrado' };
-
-  const paciente = await enviarEmailPaciente(turno);
-  const profesional = await enviarEmailProfesional(turno);
-
-  return { ok: true, resultados: [paciente, profesional] };
-};
-
-
+ 
 export const procesarRecordatorios = async () => {
   console.log('🔔 Procesando recordatorios...');
   try {
-    const horasAntes = Number(process.env.RECORDATORIO_HORAS_ANTES || 24);
-    // Ventana pared-contra-pared: misma convención que startsAt (evita el -3h).
-    const ahora = ahoraPared();
-    const hasta = new Date(ahora.getTime() + horasAntes * 60 * 60 * 1000);
+    const ahora = new Date();
+    const hasta = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
 
     const turnos = await prisma.appointment.findMany({
       where: {
@@ -213,12 +169,12 @@ export const procesarRecordatorios = async () => {
             service: true,
           },
         },
-        // Traemos solo los logs SENT para saber qué canales ya se enviaron.
+        
         reminders: { where: { status: 'SENT' } },
       },
     });
 
-    console.log(`🔎 Turnos en ventana de ${horasAntes} hs: ${turnos.length}`);
+    console.log(`🔎 Turnos en ventana de 24 hs: ${turnos.length}`);
 
     for (const turno of turnos) {
       const yaEnviado = new Set(turno.reminders.map((r) => r.channel));
@@ -231,8 +187,7 @@ export const procesarRecordatorios = async () => {
     console.error('🔴 Error al procesar recordatorios:', error.message);
   }
 };
-
-
+ 
 const iniciarRecordatorios = () => {
   cron.schedule(
     '0 * * * *',

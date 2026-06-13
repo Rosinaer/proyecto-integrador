@@ -8,7 +8,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
   const finDia = new Date();
   finDia.setHours(23, 59, 59, 999);
 
-  // Turnos de hoy buscando en 'startsAt'
+  
   const turnosHoy = await prisma.appointment.count({
     where: {
       startsAt: {
@@ -18,14 +18,14 @@ export const getDashboard = asyncHandler(async (req, res) => {
     },
   });
 
-  // Ingresos totales buscando 'amount' en Payment
+  
   const ingresos = await prisma.payment.aggregate({
     _sum: {
       amount: true,
     },
   });
 
-  // Turnos cancelados usando el Enum del schema
+  
   const cancelados = await prisma.appointment.count({
     where: {
       status: 'CANCELLED',

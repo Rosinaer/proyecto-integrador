@@ -54,8 +54,7 @@ const FichaProfesionalAdmin = () => {
       >
         ← Volver
       </Button>
-
-      {/* DATOS DEL PROFESIONAL */}
+ 
       <PageHeader
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -102,13 +101,11 @@ const FichaProfesionalAdmin = () => {
           </div>
         )}
       </div>
-
-      {/* SERVICIOS DEL PROFESIONAL */}
+ 
       <div style={{ marginBottom: "30px" }}>
         <GestionServiciosProfesional professionalId={id} token={token} />
       </div>
-
-      {/* HORARIOS RECURRENTES */}
+ 
       <GestionHorariosRecurrentes professionalId={id} token={token} />
     </div>
   );

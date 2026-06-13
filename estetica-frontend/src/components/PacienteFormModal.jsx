@@ -4,8 +4,14 @@ import { Select } from "./ui/Select";
 import { Button } from "./ui/Button";
 import { useBanner } from "./ui/Banner";
 import { crearPaciente, actualizarPaciente } from "../api/patients.api";
+import { TEL_PAIS, TEL_AREA_DEFAULT } from "../config/clinica";
+import { armarTelefono, validarTelefono, partirTelefono } from "../utils/telefono";
 
-const VACIO = { name: "", documentType: "DNI", document: "", email: "", phone: "", cuilCuit: "", clinicalNotes: "" };
+const VACIO = {
+  name: "", documentType: "DNI", document: "", email: "",
+  area: TEL_AREA_DEFAULT, numero: "",
+  cuilCuit: "", clinicalNotes: "",
+};
 
 const DOC_OPTIONS = [
   { value: "DNI", label: "DNI" },
@@ -34,19 +40,21 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
   const [form, setForm] = useState(VACIO);
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const [confirmData, setConfirmData] = useState(null); 
+  const [confirmData, setConfirmData] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setError("");
     setConfirmData(null);
     if (paciente) {
+      const { area, numero } = partirTelefono(paciente.person?.phone);
       setForm({
         name: paciente.person?.name || "",
         documentType: paciente.person?.documentType || "DNI",
         document: paciente.person?.document || "",
         email: paciente.person?.email || "",
-        phone: paciente.person?.phone || "",
+        area: area || TEL_AREA_DEFAULT,
+        numero: numero || "",
         cuilCuit: paciente.person?.cuilCuit || "",
         clinicalNotes: paciente.clinicalNotes || "",
       });
@@ -57,6 +65,8 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
 
   const set = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
 
+  // Teléfono normalizado para mostrar/guardar (54 9 área número) o "" si falta.
+  const telefonoArmado = () => armarTelefono({ area: form.area, numero: form.numero, pais: TEL_PAIS });
 
   const trasGuardar = (guardado) => {
     const p = guardado?.person || {};
@@ -65,7 +75,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
         ["Nombre", p.name || form.name],
         ["Documento", `${DOC_LABEL[p.documentType || form.documentType] || ""} ${p.document || form.document}`.trim()],
         ["Email", p.email || form.email || "—"],
-        ["Teléfono", p.phone || form.phone || "—"],
+        ["Teléfono", p.phone || telefonoArmado() || "—"],
         ["CUIL/CUIT", p.cuilCuit || form.cuilCuit || "—"],
       ],
       notes: (guardado?.clinicalNotes || form.clinicalNotes) || "",
@@ -78,7 +88,11 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
     setError("");
     setGuardando(true);
     try {
-      const payload = confirmLink ? { ...form, confirmLink: true } : form;
+      // Mandamos el teléfono ya normalizado en `phone`; el resto del payload
+      // no cambia. `area`/`numero` son solo de la UI.
+      const { area, numero, ...resto } = form;
+      const base = { ...resto, phone: telefonoArmado() };
+      const payload = confirmLink ? { ...base, confirmLink: true } : base;
       const guardado = modoEdicion
         ? await actualizarPaciente(paciente.id, payload)
         : await crearPaciente(payload);
@@ -86,7 +100,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
     } catch (err) {
       const data = err.response?.data;
       if (data?.needsConfirmation) {
-        setConfirmData(data); 
+        setConfirmData(data);
       } else {
         setError(data?.mensaje || err.message);
       }
@@ -97,8 +111,13 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
 
   const guardar = (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.document.trim() || !form.phone.trim() || !form.email.trim()) {
+    if (!form.name.trim() || !form.document.trim() || !form.email.trim()) {
       setError("Completá los campos obligatorios (marcados con *).");
+      return;
+    }
+    const errTel = validarTelefono({ area: form.area, numero: form.numero });
+    if (errTel) {
+      setError(errTel);
       return;
     }
     doSave(false);
@@ -150,8 +169,33 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
           <input type="email" placeholder="Email" value={form.email} onChange={set("email")} style={inputStyle} required />
         </Campo>
 
-        <Campo label="Teléfono" requerido>
-          <input type="text" placeholder="Teléfono" value={form.phone} onChange={set("phone")} style={inputStyle} required />
+        <Campo label="Teléfono (WhatsApp)" requerido>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ color: "#64748b", fontSize: 14 }}>+{TEL_PAIS}</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="Área"
+              value={form.area}
+              onChange={set("area")}
+              maxLength={4}
+              style={{ ...inputStyle, width: 70, flex: "0 0 70px" }}
+              required
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="Número (sin 0 ni 15)"
+              value={form.numero}
+              onChange={set("numero")}
+              style={inputStyle}
+              required
+            />
+          </div>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            Ej: área 11 · número 12345678. Se guarda como{" "}
+            {telefonoArmado() ? telefonoArmado() : "—"} para WhatsApp.
+          </span>
         </Campo>
 
         <Campo label="CUIL/CUIT">

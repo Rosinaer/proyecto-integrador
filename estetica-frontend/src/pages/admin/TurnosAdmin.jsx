@@ -1,26 +1,19 @@
-// ============================================================
-// ESPACIO SENDA — TurnosAdmin.jsx  (pestaña "Turnos" / agenda)
-// Ruta: src/pages/admin/TurnosAdmin.jsx
-//
-//   Las horas se guardan como "hora de pared" de la clínica etiquetada
-//   en UTC, así que todo el posicionamiento y formateo usa UTC.
-// ============================================================
-
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
+import { useBanner } from "../../components/ui/Banner";
 import { useAuth } from "../../hooks/useAuth";
 import { fechaClinicaStr } from "../../config/clinica";
 import ReservaTurno from "./ReservaTurno";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useNavigate } from "react-router-dom";
 
-// ─── Constantes de la rejilla ─────────────────────────────────
-const HORA_INI = 7;    // primera hora visible (07:00)
-const HORA_FIN = 21;   // última hora visible (21:00)
-const PX_MIN = 0.8;    // px por minuto (vistas verticales)
+
+const HORA_INI = 7;  
+const HORA_FIN = 21;  
+const PX_MIN = 0.8;  
 const ALTO = (HORA_FIN - HORA_INI) * 60 * PX_MIN;
-const GUTTER = 52;     // ancho de la columna de horas
+const GUTTER = 52;    
 
 const PALETA = ["#7c3aed", "#0ea5e9", "#16a34a", "#ea580c", "#db2777", "#0d9488", "#ca8a04", "#4f46e5"];
 
@@ -41,10 +34,28 @@ const PAGO = {
   COMPLETED: { label: "Pagado",      bg: "#dcfce7", fg: "#166534" },
   REFUNDED:  { label: "Reembolsado", bg: "#f1f5f9", fg: "#64748b" },
 };
+ 
+const SYNC = {
+  SYNCHRONIZED: { label: "Sincronizado", bg: "#dcfce7", fg: "#166534" },
+  PENDING:      { label: "Pendiente",    bg: "#fef9c3", fg: "#854d0e" },
+  FAILED:       { label: "Falló",        bg: "#fee2e2", fg: "#991b1b" },
+};
+
+const CANAL = { WHATSAPP: "WhatsApp", EMAIL: "Email", SMS: "SMS" };
+const LOG = {
+  SENT:   { label: "Enviado", bg: "#dcfce7", fg: "#166534" },
+  FAILED: { label: "Falló",   bg: "#fee2e2", fg: "#991b1b" },
+  READ:   { label: "Leído",   bg: "#dbeafe", fg: "#1e40af" },
+};
+ 
+const fmtMomento = (iso) =>
+  new Date(iso).toLocaleString("es-AR", {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
 
 const CANCELADO = (s) => s === "CANCELLED" || s === "NO_SHOW";
-
-// ─── Helpers de fecha (todo en UTC = hora de pared) ───────────
+ 
 const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 const parseYmd = (s) => new Date(`${s}T12:00:00Z`); // mediodía UTC para evitar bordes
@@ -63,10 +74,7 @@ const Badge = ({ map, value }) => {
   const c = map[value] || { label: value, bg: "#f1f5f9", fg: "#64748b" };
   return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: c.bg, color: c.fg }}>{c.label}</span>;
 };
-
-// ─── Empaquetado de items que se superponen (lado a lado) ─────
-// Espera items con `startsAt` y `endsAt` (ISO). Sirve tanto para turnos
-// como para slots de disponibilidad (mapeando sus horas a esos campos).
+ 
 function empacar(items) {
   const evs = items
     .map((t) => ({ t, s: minutosDelDia(t.startsAt), e: minutosDelDia(t.endsAt) }))
@@ -75,7 +83,7 @@ function empacar(items) {
   let cluster = [];
   let clusterEnd = -1;
   const cerrar = () => {
-    const cols = []; // cols[i] = fin del último evento en esa columna
+    const cols = [];  
     cluster.forEach((ev) => {
       let col = cols.findIndex((end) => end <= ev.s);
       if (col === -1) { col = cols.length; cols.push(ev.e); } else cols[col] = ev.e;
@@ -93,8 +101,7 @@ function empacar(items) {
   if (cluster.length) cerrar();
   return out;
 }
-
-// ─── Columna vertical de TURNOS (Día = un profesional, Semana = un día) ──
+ 
 const Columna = ({ items, colorDe, onPick }) => (
   <div style={{
     position: "relative", height: ALTO, borderLeft: "1px solid #e2e8f0",
@@ -122,12 +129,8 @@ const Columna = ({ items, colorDe, onPick }) => (
     })}
   </div>
 );
-
-// ─── Columna vertical de DISPONIBILIDAD (un día = bloques de agenda abierta) ──
-// Cada bloque es una franja de agenda de un profesional. Se colorea por
-// profesional y muestra cuántos turnos tiene reservados (o "libre").
-const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
-  // Mapeamos cada slot a la forma que entiende `empacar`.
+ 
+const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => { 
   const items = slots.map((s) => ({ ...s, startsAt: s.startTime, endsAt: s.endTime }));
   return (
     <div style={{
@@ -165,8 +168,7 @@ const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
     </div>
   );
 };
-
-// ─── Vista Disponibilidad (semanal: columnas por día, eje horario vertical) ──
+ 
 const CoberturaVista = ({ dias, slots, colorDe, nombreDe, onPick }) => {
   const horas = Array.from({ length: HORA_FIN - HORA_INI }, (_, i) => HORA_INI + i);
   const minCol = 132;
@@ -224,33 +226,59 @@ const CoberturaVista = ({ dias, slots, colorDe, nombreDe, onPick }) => {
     </div>
   );
 };
-
-// ════════════════════════════════════════════════════════════
+ 
 const TurnosAdmin = () => {
   const { token, user } = useAuth();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+  const banner = useBanner();
+ 
+  const [confirmRem, setConfirmRem] = useState(null); // turno a recordar
+  const [enviandoRem, setEnviandoRem] = useState(false);
 
-  // Un profesional no puede listar /professionals (ruta ADMIN/RECEPTIONIST) y
-  // solo ve lo suyo: armamos su propio item y lo dejamos seleccionado.
+  const enviarRecordatorio = async (turno) => {
+    if (!turno) return;
+    setEnviandoRem(true);
+    try {
+      const res = await fetch(`${apiUrl}/reminders/turno/${turno.id}`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo enviar el recordatorio");
+
+      const linea = (r) =>
+        r.skipped
+          ? `${r.channel === "EMAIL" ? "Email al paciente" : "Aviso a la profesional"}: omitido (${r.reason})`
+          : `${r.channel === "EMAIL" ? "Email al paciente" : "Aviso a la profesional"}: ${r.status === "SENT" ? "enviado" : "falló"}`;
+      banner.success("Recordatorio procesado", {
+        details: (data.resultados || []).map((r) => ["", linea(r)]),
+      });
+      setConfirmRem(null);
+    } catch (err) {
+      banner.error(err.message);
+    } finally {
+      setEnviandoRem(false);
+    }
+  };
+ 
   const esProfesional = user?.role === "PROFESSIONAL";
   const miProfId = user?.professionalId || "";
 
-  const [vista, setVista] = useState("dia"); // 'dia' | 'semana' | 'cobertura'
-  const [ancla, setAncla] = useState(fechaClinicaStr()); // YYYY-MM-DD enfocado
+  const [vista, setVista] = useState("dia"); 
+  const [ancla, setAncla] = useState(fechaClinicaStr()); 
   const [profesionales, setProfesionales] = useState([]);
-  const [profSel, setProfSel] = useState([]); // ids seleccionados
+  const [profSel, setProfSel] = useState([]);  
   const [turnos, setTurnos] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [ocultarCancelados, setOcultarCancelados] = useState(true);
-
-  // Cobertura (disponibilidad / agendas abiertas)
+ 
   const [slotsCob, setSlotsCob] = useState([]);
   const [cargandoCob, setCargandoCob] = useState(false);
 
   const [detalle, setDetalle] = useState(null);
-  const [detalleSlot, setDetalleSlot] = useState(null); // franja de disponibilidad clickeada
-  const [slotTurnos, setSlotTurnos] = useState([]);     // turnos de la franja abierta
+  const [detalleSlot, setDetalleSlot] = useState(null);  
+  const [slotTurnos, setSlotTurnos] = useState([]);      
   const [cargandoSlot, setCargandoSlot] = useState(false);
   const [modalNuevo, setModalNuevo] = useState(false);
 
@@ -271,8 +299,7 @@ const TurnosAdmin = () => {
   }, [token]);
 
   const esSemana = vista === "semana";
-  const esCobertura = vista === "cobertura";
-  // Día = un día; Semana y Cobertura = la semana (lun-dom) del ancla.
+  const esCobertura = vista === "cobertura"; 
   const semanal = esSemana || esCobertura;
 
   // Rango visible
@@ -287,8 +314,7 @@ const TurnosAdmin = () => {
     const ini = lunesDe(ancla);
     return Array.from({ length: 7 }, (_, i) => addDays(ini, i));
   }, [semanal, ancla]);
-
-  // Color estable por profesional
+ 
   const colorDe = useMemo(() => {
     const m = {};
     profesionales.forEach((p, i) => { m[p.id] = PALETA[i % PALETA.length]; });
@@ -300,8 +326,7 @@ const TurnosAdmin = () => {
     profesionales.forEach((p) => { m[p.id] = p.person?.name || "—"; });
     return m;
   }, [profesionales]);
-
-  // ── Cargar profesionales (y seleccionarlos todos por defecto) ──
+ 
   useEffect(() => {
     if (!token) return;
     // El profesional no lista a los demás: se arma su propio item y queda fijo.
@@ -320,8 +345,7 @@ const TurnosAdmin = () => {
       })
       .catch(() => setProfesionales([]));
   }, [token, esProfesional, miProfId]);
-
-  // ── Cargar turnos del rango visible (Día / Semana) ──
+ 
   const cargarTurnos = useCallback(async () => {
     if (!token || esCobertura) return; // en Disponibilidad usamos los slots de agenda
     setCargando(true);
@@ -340,11 +364,7 @@ const TurnosAdmin = () => {
   }, [token, apiUrl, headers, rango.ini, rango.fin, esCobertura]);
 
   useEffect(() => { cargarTurnos(); }, [cargarTurnos]);
-
-  // ── Cargar disponibilidad (Cobertura) ──
-  // El endpoint de disponibilidad es por profesional y por mes, así que pedimos
-  // cada profesional seleccionado para el/los mes(es) que toca la semana visible,
-  // y nos quedamos con los slots ACTIVOS cuyas fechas caen en la semana.
+ 
   const cargarCobertura = useCallback(async () => {
     if (!esCobertura || !token) return;
     const ids = profesionales.filter((p) => profSel.includes(p.id)).map((p) => p.id);
@@ -384,16 +404,14 @@ const TurnosAdmin = () => {
   }, [esCobertura, token, apiUrl, headers, profesionales, profSel, dias]);
 
   useEffect(() => { cargarCobertura(); }, [cargarCobertura]);
-
-  // ── Turnos visibles (filtro de profesionales + cancelados) ──
+ 
   const visibles = useMemo(() => turnos.filter((t) => {
     if (ocultarCancelados && CANCELADO(t.status)) return false;
     return profSel.includes(t.professionalService?.professional?.id);
   }), [turnos, profSel, ocultarCancelados]);
 
   const profsVisibles = profesionales.filter((p) => profSel.includes(p.id));
-
-  // Columnas para vistas verticales (Día / Semana)
+ 
   const columnas = esSemana
     ? dias.map((d) => ({
         key: d,
@@ -407,24 +425,17 @@ const TurnosAdmin = () => {
         color: colorDe[p.id],
         items: visibles.filter((t) => t.professionalService?.professional?.id === p.id && fechaDe(t) === ancla),
       }));
-
-  // ── Navegación ──
+ 
   const navegar = (signo) => setAncla((a) => addDays(a, signo * (semanal ? 7 : 1)));
   const irHoy = () => setAncla(fechaClinicaStr());
 
   const toggleProf = (id) => setProfSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   const todos = () => setProfSel(profesionales.map((p) => p.id));
   const ninguno = () => setProfSel([]);
-
-  // ── Detalle de una franja de disponibilidad ──────────────────
-  // Hacemos el modal autosuficiente: además de lo que venga embebido en el
-  // slot (slot.appointments), pedimos los turnos del día y filtramos por
-  // availabilityId. Así el detalle muestra los turnos aunque el endpoint de
-  // disponibilidad cambie de forma (datos "lean" vs. completos) entre deploys.
+ 
   const abrirSlot = useCallback(async (slot) => {
     if (!slot) return;
-    setDetalleSlot(slot);
-    // Mostramos de entrada lo que ya traía el slot (respuesta instantánea)
+    setDetalleSlot(slot); 
     setSlotTurnos(Array.isArray(slot.appointments) ? slot.appointments : []);
     if (!token) return;
     setCargandoSlot(true);
@@ -462,8 +473,7 @@ const TurnosAdmin = () => {
   const minCol = vista === "dia" ? 150 : 128;
 
   return (
-    <div>
-      {/* ── Encabezado ── */}
+    <div> 
       <PageHeader
         title="Turnera"
         actions={
@@ -485,8 +495,7 @@ const TurnosAdmin = () => {
         <span style={{ fontWeight: 700, textDecoration: "underline" }}>Ir a la bandeja →</span>
       </div>
     )}
-
-      {/* ── Formulario inline de nuevo turno (no modal: la agenda queda visible) ── */}
+ 
       {modalNuevo && (
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 18, marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -497,11 +506,10 @@ const TurnosAdmin = () => {
           <ReservaTurno embedded onCreated={() => { cargarTurnos(); }} />
         </div>
       )}
-
-      {/* ── Barra de controles ── */}
+ 
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {/* Vista */}
+ 
           <div style={{ display: "flex", border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden" }}>
             {[["cobertura", "Disponibilidad"], ["dia", "Día"], ["semana", "Semana"]].map(([v, txt]) => (
               <button key={v} type="button" onClick={() => setVista(v)}
@@ -511,8 +519,7 @@ const TurnosAdmin = () => {
               </button>
             ))}
           </div>
-
-          {/* Navegación */}
+ 
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button type="button" onClick={() => navegar(-1)} style={navBtn}>‹</button>
             <button type="button" onClick={irHoy} style={{ ...navBtn, width: "auto", padding: "0 12px", fontSize: 13 }}>Hoy</button>
@@ -531,8 +538,7 @@ const TurnosAdmin = () => {
             </label>
           )}
         </div>
-
-        {/* Profesionales */}
+ 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
           <span style={{ fontSize: 12, color: "#64748b", marginRight: 4 }}>Profesionales:</span>
           {profesionales.map((p) => {
@@ -558,8 +564,7 @@ const TurnosAdmin = () => {
           </div>
         )}
       </div>
-
-      {/* ── Rejilla ── */}
+ 
       {esCobertura ? (
         cargandoCob ? (
           <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Cargando agendas…</p>
@@ -578,8 +583,7 @@ const TurnosAdmin = () => {
         </div>
       ) : (
         <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff" }}>
-          <div style={{ minWidth: GUTTER + columnas.length * minCol }}>
-            {/* Cabecera de columnas */}
+          <div style={{ minWidth: GUTTER + columnas.length * minCol }}> 
             <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, background: "#fff", zIndex: 2 }}>
               <div style={{ width: GUTTER, flex: `0 0 ${GUTTER}px` }} />
               {columnas.map((c) => (
@@ -593,18 +597,15 @@ const TurnosAdmin = () => {
                 </div>
               ))}
             </div>
-
-            {/* Cuerpo */}
-            <div style={{ display: "flex" }}>
-              {/* Gutter de horas */}
+ 
+            <div style={{ display: "flex" }}> 
               <div style={{ width: GUTTER, flex: `0 0 ${GUTTER}px`, position: "relative", height: ALTO }}>
                 {horas.map((h) => (
                   <div key={h} style={{ position: "absolute", top: (h - HORA_INI) * 60 * PX_MIN - 6, right: 6, fontSize: 11, color: "#94a3b8" }}>
                     {pad(h)}:00
                   </div>
                 ))}
-              </div>
-              {/* Columnas */}
+              </div> 
               {columnas.map((c) => (
                 <div key={c.key} style={{ flex: `1 0 ${minCol}px` }}>
                   <Columna items={c.items} colorDe={colorDe} onPick={setDetalle} />
@@ -614,8 +615,7 @@ const TurnosAdmin = () => {
           </div>
         </div>
       )}
-
-      {/* ── Modal detalle ── */}
+ 
       <Modal isOpen={!!detalle} onClose={() => setDetalle(null)} title="Detalle del turno">
         {detalle && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 14 }}>
@@ -636,11 +636,83 @@ const TurnosAdmin = () => {
                 <p style={{ margin: "5px 0 0 0", color: "#475569" }}>{detalle.notes}</p>
               </div>
             )}
+
+            {/* ── Sincronización con Google + recordatorios enviados ── */}
+            <div style={{ marginTop: 6, padding: 10, background: "#f8fafc", borderRadius: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ margin: 0 }}>
+                <strong>📅 Google Calendar:</strong>{" "}
+                <Badge map={SYNC} value={detalle.googleSyncStatus} />{" "}
+                {detalle.googleSyncStatus === "FAILED" && (
+                  <span style={{ color: "#64748b", fontSize: 12 }}>— se reintenta solo cada 15 min</span>
+                )}
+                {detalle.googleSyncStatus === "PENDING" && (
+                  <span style={{ color: "#64748b", fontSize: 12 }}>— todavía no subió al calendario</span>
+                )}
+              </p>
+
+              <div>
+                <strong>🔔 Recordatorios:</strong>
+                {!detalle.reminders || detalle.reminders.length === 0 ? (
+                  <span style={{ color: "#64748b" }}> sin envíos todavía (se mandan ~24 hs antes)</span>
+                ) : (
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {[...detalle.reminders]
+                      .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))
+                      .map((r) => (
+                        <li key={r.id} style={{ fontSize: 13 }}>
+                          {CANAL[r.channel] || r.channel}{" "}
+                          <Badge map={LOG} value={r.status} />{" "}
+                          <span style={{ color: "#64748b" }}>{fmtMomento(r.sentAt)}</span>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+ 
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
+              {detalle.patientId && (
+                <Button
+                  style={{ backgroundColor: "#8b5cf6" }}
+                  onClick={() => { const id = detalle.patientId; setDetalle(null); navigate(`/admin/pacientes/${id}`); }}
+                >
+                  Ficha del paciente
+                </Button>
+              )}
+              <Button style={{ backgroundColor: "#0ea5e9" }} onClick={() => setConfirmRem(detalle)}>
+                Enviar recordatorio
+              </Button>
+            </div>
           </div>
         )}
       </Modal>
-
-      {/* ── Modal detalle de la DISPONIBILIDAD (franja de agenda) ── */}
+ 
+      <Modal isOpen={!!confirmRem} onClose={() => !enviandoRem && setConfirmRem(null)} title="Enviar recordatorio">
+        {confirmRem && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14 }}>
+            <p style={{ margin: 0 }}>
+              Se enviará el recordatorio del turno de{" "}
+              <strong>{confirmRem.patient?.person?.name || "—"}</strong> ({fmtHora(confirmRem.startsAt)}):
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, color: "#475569" }}>
+              <li>Un <strong>email al paciente</strong> ({confirmRem.patient?.person?.email || "sin email"}).</li>
+              <li>Un <strong>email para vos</strong> con el link de WhatsApp ya armado para mandárselo al paciente.</li>
+            </ul>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>
+              El WhatsApp no se envía solo: te llega el link listo para tocar.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} disabled={enviandoRem} onClick={() => setConfirmRem(null)}>
+                Cancelar
+              </Button>
+              <Button type="button" disabled={enviandoRem} onClick={() => enviarRecordatorio(confirmRem)}>
+                {enviandoRem ? "Enviando..." : "Sí, enviar"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+ 
       <Modal isOpen={!!detalleSlot} onClose={cerrarSlot} title="Detalle de la disponibilidad">
         {detalleSlot && (() => {
           const appts = (slotTurnos || []).slice().sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));

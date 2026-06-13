@@ -82,16 +82,6 @@ function App() {
           <Route path="reprogramar" element={<Pagina pagina="reprogramar"><ReprogramarAdmin /></Pagina>} />
         </Route>
 
-        {/* --- RUTAS DE PACIENTE (Comentadas temporalmente por QA) --- */}
-        {/* <Route
-          path="/paciente"
-          element={
-            <ProtectedRoute rolesPermitidos={["PATIENT"]}>
-              <PacienteDashboard />
-            </ProtectedRoute>
-          }
-        /> 
-        */}
       </Routes>
     </BrowserRouter>
   );

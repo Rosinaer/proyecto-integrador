@@ -20,17 +20,14 @@ const ServiciosAdmin = () => {
   const [categorias, setCategorias] = useState([]);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
-
-  // Modal de eliminación
+ 
   const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
-
-  // Modal de Formulario (Crear / Editar)
+ 
   const [modalFormAbierto, setModalFormAbierto] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [servicioEditandoId, setServicioEditandoId] = useState(null);
-
-  // Adaptamos el formData a lo que necesita un Servicio
+ 
   const [formData, setFormData] = useState({
     name: "",
     categoryId: "",
@@ -45,15 +42,13 @@ const ServiciosAdmin = () => {
 
   const { token } = useAuth();
   const banner = useBanner();
-
-  // Activos primero, luego inactivos; alfabético dentro de cada grupo (mismo patrón que Profesionales/Usuarios)
+ 
   const ordenarPorEstado = (lista) =>
     [...lista].sort((a, b) => {
       if (Boolean(a.active) !== Boolean(b.active)) return a.active ? -1 : 1;
       return (a.name || "").localeCompare(b.name || "");
     });
-
-  // Obtener servicios
+ 
 
   const cargarServicios = async () => {
     try {
@@ -65,9 +60,7 @@ const ServiciosAdmin = () => {
       setCargando(false);
     }
   };
-
-  // OBTENER CATEGORÍAS
-
+ 
   const cargarCategorias = async () => {
     try {
       const data = await obtenerCategorias();
@@ -83,8 +76,7 @@ const ServiciosAdmin = () => {
       cargarCategorias();
     }
   }, [token]);
-
-  // MODAL CREAR
+ 
 
   const abrirModalCrear = () => {
     setModoEdicion(false);
@@ -101,8 +93,7 @@ const ServiciosAdmin = () => {
 
     setModalFormAbierto(true);
   };
-
-  // MODAL EDITAR
+ 
 
   const abrirModalEditar = (servicio) => {
     setModoEdicion(true);
@@ -161,9 +152,7 @@ const ServiciosAdmin = () => {
       setCargandoForm(false);
     }
   };
-
-  // DESACTIVAR
-
+ 
   const confirmarEliminacion = (servicio) => {
     setServicioSeleccionado(servicio);
     setModalEliminarAbierto(true);
@@ -179,9 +168,7 @@ const ServiciosAdmin = () => {
     } catch (err) {
       banner.error(err.message);
     }
-  };
-
-  // REACTIVAR
+  }; 
   const reactivarServicio = async (servicio) => {
     try {
       await actualizarServicio(servicio.id, { active: true });
@@ -281,8 +268,7 @@ const ServiciosAdmin = () => {
           </Tr>
         ))}
       </Table>
-
-      {/* MODAL FORMULARIO */}
+ 
 
       <Modal
         isOpen={modalFormAbierto}

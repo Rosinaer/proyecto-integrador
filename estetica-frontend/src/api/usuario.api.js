@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// Igual acá, en tu app.js del backend declaraste '/api/users'
+
 const API = `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/users`;
 
 export const obtenerUsuarios = async (token) => {

@@ -24,8 +24,8 @@ const PacientesAdmin = () => {
   const [pacienteEditando, setPacienteEditando] = useState(null);
 
   const { token, user } = useAuth();
-  const editable = puedeEditar(user?.role, "pacientes");   // profesional ve, no edita
-  const puedeReservar = puede(user?.role, "reservaTurno");  // profesional no reserva
+  const editable = puedeEditar(user?.role, "pacientes");   
+  const puedeReservar = puede(user?.role, "reservaTurno");  
   const navigate = useNavigate();
 
   const cargarPacientes = async (search = "") => {
@@ -40,12 +40,11 @@ const PacientesAdmin = () => {
     }
   };
 
-  // Carga inicial
+ 
   useEffect(() => {
     if (token) cargarPacientes();
   }, [token]);
-
-  // Búsqueda con debounce (consulta al backend por nombre / email / teléfono)
+ 
   useEffect(() => {
     if (!token) return;
     const t = setTimeout(() => cargarPacientes(busqueda.trim()), 300);
@@ -62,8 +61,7 @@ const PacientesAdmin = () => {
         title="Gestión de Pacientes"
         actions={editable ? <Button onClick={abrirAlta}>+ Nuevo Paciente</Button> : null}
       />
-
-      {/* Buscador / filtro */}
+ 
       <div style={{ marginBottom: 16, position: "relative", maxWidth: 420 }}>
         <input
           value={busqueda}

@@ -14,8 +14,6 @@ const FichaPacienteAdmin = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token, user } = useAuth();
-  // El historial de pagos es info financiera: solo Admin/Recepción. El
-  // profesional ve la ficha y los turnos, pero no los pagos.
   const puedeVerPagos = ["ADMIN", "RECEPTIONIST"].includes(user?.role);
 
   const [paciente, setPaciente] = useState(null);
@@ -33,8 +31,7 @@ const FichaPacienteAdmin = () => {
       setPaciente(dataPaciente);
       setTurnos(dataTurnos);
 
-      // Los pagos se piden aparte y solo si el rol puede verlos, para que un
-      // 403 no tumbe la carga de la ficha completa.
+      
       if (puedeVerPagos) {
         try {
           setPagos(await obtenerHistorialPagos(id));
@@ -79,8 +76,7 @@ const FichaPacienteAdmin = () => {
       >
         ← Volver
       </Button>
-
-      {/* DATOS DEL PACIENTE */}
+ 
       <PageHeader title={`Ficha de ${paciente?.person?.name || ""}`} />
 
       <div
@@ -139,8 +135,7 @@ const FichaPacienteAdmin = () => {
           </div>
         )}
       </div>
-
-      {/* HISTORIAL DE TURNOS */}
+ 
 
       <h3 style={{ color: "#475569", marginBottom: "15px" }}>
         Historial de turnos
@@ -193,8 +188,7 @@ const FichaPacienteAdmin = () => {
         </div>
       )}
 
-      {puedeVerPagos && (<>
-      {/* HISTORIAL DE PAGOS */}
+      {puedeVerPagos && (<> 
 
       <h3 style={{ color: "#475569", marginBottom: "15px" }}>
         Historial de pagos
@@ -214,12 +208,7 @@ const FichaPacienteAdmin = () => {
 
               <Td>
                 {p.appointment?.professionalService?.service?.name || "—"}
-              </Td>
-
-              {/* CORRECCIÓN: el backend devuelve los campos `method` y `type`
-                  (Prisma usa el nombre del campo, no el de la columna).
-                  Antes se leía p.paymentMethod / p.paymentType -> undefined,
-                  y las columnas Método/Tipo salían en blanco. */}
+              </Td> 
               <Td>{p.method}</Td>
 
               <Td>{p.isRefund ? "Devolución" : p.type}</Td>

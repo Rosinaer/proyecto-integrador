@@ -50,8 +50,7 @@ const ResetPassword = () => {
       }
 
       setMensaje("¡Contraseña actualizada con éxito!");
-      
-      // Esperamos 3 segundos y mandamos al usuario al login
+       
       setTimeout(() => {
         navigate("/login");
       }, 3000);

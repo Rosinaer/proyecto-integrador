@@ -7,8 +7,7 @@ import { useBanner } from "../../components/ui/Banner";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 import { fechaClinicaStr } from "../../config/clinica";
-
-// ─── Formateadores de fecha/hora ─────────────────────────────
+ 
 const hora = (iso) =>
   iso ? new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
 
@@ -24,8 +23,7 @@ const fechaParedStr = (iso) => {
 
 const hoyStr = () => fechaClinicaStr();
 
-
-// ─── Constantes de dominio ────────────────────────────────────
+ 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -57,8 +55,7 @@ const TIPOS_PAGO = [
   { value: "DEPOSIT", label: "Seña" },
   { value: "FINAL_PAYMENT", label: "Pago final" },
 ];
-
-// ─── Helpers ──────────────────────────────────────────────────
+ 
 const pad = (n) => String(n).padStart(2, "0");
 const localDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -74,8 +71,7 @@ const nomPac  = (t) => t?.patient?.person?.name ?? "—";
 const pagadoDe = (t) =>
   (Array.isArray(t?.payments) ? t.payments : []).reduce(
     (acc, p) => acc + (p.isRefund ? -1 : 1) * Number(p.amount), 0);
-
-// ─── Estilos ──────────────────────────────────────────────────
+ 
 const S = {
   card: { backgroundColor: "#fff", borderRadius: "10px", padding: "20px",
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" },
@@ -108,28 +104,22 @@ const Badge = ({ map, value }) => {
     </span>
   );
 };
-
-// ════════════════════════════════════════════════════════════════
+ 
 const Dashboard = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const banner = useBanner();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
-  // Un profesional ve su dashboard acotado a SU perfil: fijamos su id en los
-  // filtros y bloqueamos los selectores. (El backend ya scopea /appointments,
-  // esto solo alinea la UI para que no intente filtrar por otros.)
   const esProfesional = user?.role === "PROFESSIONAL";
   const miProfId = user?.professionalId || "";
 
   const hoy = new Date();
-
-  // Filtro de KPIs
+ 
   const [kpiProf, setKpiProf] = useState(esProfesional ? miProfId : "");
   const [kpiMes, setKpiMes]   = useState(hoy.getMonth() + 1);
   const [kpiAnio, setKpiAnio] = useState(hoy.getFullYear());
-
-  // Filtro de la tabla de turnos
+ 
   const [tablaProf, setTablaProf] = useState(esProfesional ? miProfId : "");
   const [tablaDia, setTablaDia]   = useState(hoyStr());
 
@@ -139,12 +129,13 @@ const Dashboard = () => {
   const [cargandoKpis, setCargandoKpis] = useState(false);
   const [cargandoTabla, setCargandoTabla] = useState(false);
   const [accionando, setAccionando] = useState(false);
-
-  // Modales
+ 
   const [detalle, setDetalle] = useState(null);
   const [estadoTurno, setEstadoTurno] = useState(null); // turno al que se le cambia el estado
   const [cobroTurno, setCobroTurno] = useState(null);
   const [formCobro, setFormCobro] = useState({ amount: "", method: "CASH", type: "FULL_PAYMENT" });
+  const [confirmRem, setConfirmRem] = useState(null);   // turno a recordar (confirmación)
+  const [enviandoRem, setEnviandoRem] = useState(false);
 
   const headers = useCallback(() => ({
     Authorization: `Bearer ${token}`, "Content-Type": "application/json",
@@ -153,12 +144,9 @@ const Dashboard = () => {
   // Mensajes ahora van al banner global persistente (no desaparecen solos).
   const mostrarOk    = (m) => banner.success(m);
   const mostrarError = (m) => banner.error(m);
-
-  // ── Profesionales ──
+ 
   useEffect(() => {
-    if (!token) return;
-    // El profesional no puede listar /professionals (ruta ADMIN/RECEPTIONIST) y
-    // tampoco lo necesita: su filtro queda fijo en su propia ficha.
+    if (!token) return; 
     if (esProfesional) {
       setProfesionales(miProfId ? [{ id: miProfId, person: { name: user?.person?.name || "Mi perfil" } }] : []);
       return;
@@ -168,8 +156,7 @@ const Dashboard = () => {
       .then((d) => setProfesionales(Array.isArray(d) ? d : []))
       .catch(() => setProfesionales([]));
   }, [token, esProfesional, miProfId]);
-
-  // ── KPIs del mes ──
+ 
   const cargarKpis = useCallback(async () => {
     if (!token) return;
     setCargandoKpis(true);
@@ -189,8 +176,7 @@ const Dashboard = () => {
   }, [token, API, headers, kpiProf, kpiMes, kpiAnio]);
 
   useEffect(() => { cargarKpis(); }, [cargarKpis]);
-
-  // ── Turnos del día (tabla) ──
+ 
   const cargarTabla = useCallback(async () => {
     if (!token || !tablaDia) return;
     setCargandoTabla(true);
@@ -213,8 +199,7 @@ const Dashboard = () => {
   useEffect(() => { cargarTabla(); }, [cargarTabla]);
 
   const refrescar = () => { cargarKpis(); cargarTabla(); };
-
-  // ── KPIs derivados ──
+ 
   const kpis = useMemo(() => {
     const hs = hoyStr();
     const turnosHoy = kpiTurnos.filter((t) => fechaParedStr(t.startsAt) === hs).length;
@@ -225,8 +210,7 @@ const Dashboard = () => {
     const ingresos = kpiTurnos.reduce((acc, t) => acc + pagadoDe(t), 0);
     return { turnosHoy, asistencia, noShows, ingresos };
   }, [kpiTurnos]);
-
-  // ── Acciones ──
+ 
   const cambiarEstado = async (turno, status) => {
     setAccionando(true);
     const prev = turno.status;
@@ -253,6 +237,33 @@ const Dashboard = () => {
       mostrarError(err.message);
     } finally {
       setAccionando(false);
+    }
+  };
+ 
+  const enviarRecordatorio = async (turno) => {
+    if (!turno) return;
+    setEnviandoRem(true);
+    try {
+      const res = await fetch(`${API}/reminders/turno/${turno.id}`, {
+        method: "POST", headers: headers(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo enviar el recordatorio");
+
+      const etiqueta = (r) => (r.channel === "EMAIL" ? "Email al paciente" : "Aviso a la profesional");
+      const estado = (r) => (r.skipped ? `omitido (${r.reason})` : r.status === "SENT" ? "enviado" : "falló");
+      setConfirmRem(null);
+      refrescar();
+      banner.success("Recordatorio procesado", {
+        details: [
+          ["Paciente", nomPac(turno)],
+          ...(data.resultados || []).map((r) => [etiqueta(r), estado(r)]),
+        ],
+      });
+    } catch (err) {
+      mostrarError(err.message);
+    } finally {
+      setEnviandoRem(false);
     }
   };
 
@@ -303,16 +314,14 @@ const Dashboard = () => {
   const optsProf = profesionales.map((p) => (
     <option key={p.id} value={p.id}>{p.person?.name || p.name}</option>
   ));
-
-  // ════════════════════════════════════════════════════════════
+ 
   return (
     <div style={{ width: "100%", boxSizing: "border-box" }}>
       <PageHeader
         title={`¡Hola, ${user?.person?.name || user?.name || "Admin"}! 👋`}
         subtitle={<>Resumen de <strong>Espacio Senda</strong>.</>}
       />
-
-      {/* ── Filtro de KPIs ── */}
+ 
       <div style={{ ...S.card, marginBottom: "20px" }}>
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "2", minWidth: "200px" }}>
@@ -338,8 +347,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* ── Paneles KPI ── */}
+ 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                     gap: "18px", marginBottom: "16px" }}>
         <div style={S.kpi}>
@@ -453,8 +461,7 @@ const Dashboard = () => {
           </Table>
         )}
       </div>
-
-      {/* ── Modal detalle ── */}
+ 
       <Modal isOpen={!!detalle} onClose={() => setDetalle(null)} title="Detalle del turno">
         {detalle && (() => {
           const pagado = pagadoDe(detalle);
@@ -480,8 +487,7 @@ const Dashboard = () => {
                 {fila("Tipo de turno", detalle.isOverbook ? "Sobreturno" : "Normal")}
                 {fila("Creado", fechaHora(detalle.createdAt))}
               </div>
-
-              {/* Pagos */}
+ 
               <div style={{ padding: "10px 12px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                   <strong>Pago</strong>
@@ -507,15 +513,13 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
-
-              {/* Reprogramación */}
+ 
               {detalle.rescheduleRequestedAt && (
                 <div style={{ padding: "8px 12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13 }}>
                   ⟳ Marcado para reprogramar el {fechaHora(detalle.rescheduleRequestedAt)}
                 </div>
               )}
-
-              {/* Recordatorios */}
+ 
               {rems.length > 0 && (
                 <div style={{ fontSize: 13 }}>
                   <span style={{ color: "#64748b", fontSize: 12 }}>Recordatorios:</span>{" "}
@@ -535,20 +539,48 @@ const Dashboard = () => {
                 </div>
               )}
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
                 {detalle.patientId && (
                   <Button style={{ backgroundColor: "#8b5cf6" }}
                           onClick={() => { const id = detalle.patientId; setDetalle(null); navigate(`/admin/pacientes/${id}`); }}>
                     Ver ficha del paciente
                   </Button>
                 )}
+                <Button style={{ backgroundColor: "#0ea5e9" }} onClick={() => setConfirmRem(detalle)}>
+                  Enviar recordatorio
+                </Button>
               </div>
             </div>
           );
         })()}
       </Modal>
-
-      {/* ── Modal cambiar estado ── */}
+ 
+      <Modal isOpen={!!confirmRem} onClose={() => !enviandoRem && setConfirmRem(null)} title="Enviar recordatorio">
+        {confirmRem && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14 }}>
+            <p style={{ margin: 0 }}>
+              Se enviará el recordatorio del turno de{" "}
+              <strong>{nomPac(confirmRem)}</strong> ({hora(confirmRem.startsAt)}):
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, color: "#475569" }}>
+              <li>Un <strong>email al paciente</strong> ({confirmRem.patient?.person?.email || "sin email"}).</li>
+              <li>Un <strong>email para vos</strong> con el link de WhatsApp ya armado para mandárselo al paciente.</li>
+            </ul>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>
+              El WhatsApp no se envía solo: te llega el link listo para tocar.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} disabled={enviandoRem} onClick={() => setConfirmRem(null)}>
+                Cancelar
+              </Button>
+              <Button type="button" disabled={enviandoRem} onClick={() => enviarRecordatorio(confirmRem)}>
+                {enviandoRem ? "Enviando..." : "Sí, enviar"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+ 
       <Modal isOpen={!!estadoTurno} onClose={() => setEstadoTurno(null)} title="Cambiar estado del turno">
         {estadoTurno && (
           <div>
@@ -576,8 +608,7 @@ const Dashboard = () => {
           </div>
         )}
       </Modal>
-
-      {/* ── Modal cobrar ── */}
+ 
       <Modal isOpen={!!cobroTurno} onClose={() => setCobroTurno(null)} title="Registrar cobro">
         {cobroTurno && (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>

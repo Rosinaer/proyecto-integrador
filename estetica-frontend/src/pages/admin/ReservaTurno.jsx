@@ -5,16 +5,14 @@ import { useAuth } from "../../hooks/useAuth";
 import { PacienteFormModal } from "../../components/PacienteFormModal";
 import { useBanner } from "../../components/ui/Banner";
 import { PageHeader } from "../../components/ui/PageHeader";
-
-// Etiqueta completa de un paciente: Nombre · DOC · email (si tiene)
+ 
 const pacienteLabel = (p) => {
   if (!p) return "";
   const per = p.person || p;
   const doc = [per.documentType, per.document].filter(Boolean).join(" ");
   return [per.name, doc, per.email].filter(Boolean).join(" · ");
-};
+}; 
 
-// ── Paleta Espacio Senda ────────────────────────────────────────
 const PURPLE = "#6b21a8";
 const PURPLE_BG = "#f3e8ff";
 const BORDER = "#cbd5e1";
@@ -24,14 +22,11 @@ const MUTED = "#94a3b8";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-const fmtPrecio = (n) => "$" + Number(n || 0).toLocaleString("es-AR");
-// Los instantes se guardan como "hora de pared" de la clínica etiquetada en UTC,
-// así que se muestran formateando en UTC (sin convertir a la zona del navegador).
+const fmtPrecio = (n) => "$" + Number(n || 0).toLocaleString("es-AR"); 
 const fmtHora = (iso) => new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 const fmtFechaCorta = (iso) => new Date(iso).toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const fmtFechaLarga = (iso) => new Date(iso).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-
-// Avisos a partir de un Service (nota de recordatorio / requiere pre-consulta)
+ 
 function avisosDeServicio(service) {
   if (!service) return [];
   const out = [];
@@ -39,10 +34,7 @@ function avisosDeServicio(service) {
   if (service.requiresPreConsult) out.push(`${service.name}: requiere pre-consulta antes de confirmar`);
   return out;
 }
-
-// ════════════════════════════════════════════════════════════════
-//  Mini calendario: pinta solo los días con turno posible
-// ════════════════════════════════════════════════════════════════
+ 
 function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
   const diasSet = useMemo(() => new Set(dias), [dias]);
   const offset = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7; // Lun = 0
@@ -92,9 +84,6 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════
-//  Panel de reserva
-// ════════════════════════════════════════════════════════════════
 export default function ReservaTurno({ onCreated, embedded = false }) {
   const { token, user } = useAuth();
   const navigate = useNavigate();
@@ -103,32 +92,26 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const headers = { Authorization: `Bearer ${token}` };
   const jsonHeaders = { "Content-Type": "application/json", ...headers };
-
-  // El profesional solo agenda en SU propia agenda: modo fijo "por profesional",
-  // su ficha fija, y sin sobreturno (eso queda para admin/recepción).
+ 
   const esProfesional = user?.role === "PROFESSIONAL";
   const miProfId = user?.professionalId || "";
 
-  const [modo, setModo] = useState("profesional"); // 'profesional' | 'servicio'
+  const [modo, setModo] = useState("profesional"); 
   const [sobreturno, setSobreturno] = useState(false);
-
-  // catálogos
+ 
   const [profesionales, setProfesionales] = useState([]);
   const [servicios, setServicios] = useState([]);
-
-  // modo profesional
+ 
   const [profSel, setProfSel] = useState("");
   const [serviciosProf, setServiciosProf] = useState([]); 
   const [elegidos, setElegidos] = useState([]);
-
-  // modo servicio
+ 
   const [servSel, setServSel] = useState("");
   const [opciones, setOpciones] = useState([]);
   const [opcionSel, setOpcionSel] = useState(null);
   const [servInfo, setServInfo] = useState(null);
   const [cargandoOpciones, setCargandoOpciones] = useState(false);
-
-  // selección derecha — turno normal (calendario + slots)
+ 
   const hoy = new Date();
   const [verMes, setVerMes] = useState({ year: hoy.getFullYear(), month: hoy.getMonth() + 1 });
   const [dias, setDias] = useState([]);
@@ -137,11 +120,11 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   const [slotSel, setSlotSel] = useState(null);
   const [availabilityId, setAvailabilityId] = useState("");
 
-  // selección derecha — sobreturno (fecha + hora libres)
+ 
   const [stFecha, setStFecha] = useState("");
   const [stHora, setStHora] = useState("");
 
-  // paciente
+ 
   const [pacQuery, setPacQuery] = useState("");
   const [pacientes, setPacientes] = useState([]);
   const [pacSel, setPacSel] = useState("");
@@ -152,10 +135,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
-  // ── Carga inicial de catálogos ──
   useEffect(() => {
-    // El profesional no puede listar /professionals: fija su propia ficha
-    // (que dispara la carga de sus servicios) y no trae el catálogo global.
     if (esProfesional) {
       if (miProfId) {
         setProfesionales([{ id: miProfId, person: { name: user?.person?.name || "Mi agenda" } }]);
@@ -176,8 +156,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       }
     })();
   }, []);
-
-  // ── Paciente preseleccionado (ej.: viniendo desde "Pacientes") ──
+ 
   useEffect(() => {
     const pre = location.state?.patient;
     if (pre?.id) {
@@ -185,8 +164,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       setPacQuery(pre.name || "");
     }
   }, [location.state]);
-
-  // ── modo profesional: al elegir profesional, traemos sus servicios ──
+ 
   useEffect(() => {
     setElegidos([]);
     if (!profSel) { setServiciosProf([]); return; }
@@ -196,8 +174,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       setServiciosProf(data.services || []);
     })();
   }, [profSel]);
-
-  // ── modo servicio: al elegir servicio, traemos profesionales + primer turno ──
+ 
   useEffect(() => {
     setOpcionSel(null);
     setOpciones([]);
@@ -215,8 +192,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       }
     })();
   }, [servSel]);
-
-  // ── Contexto de cálculo unificado para ambos modos ──
+ 
   const contexto = useMemo(() => {
     if (modo === "profesional") {
       if (!profSel || elegidos.length === 0) return null;
@@ -243,8 +219,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   }, [modo, profSel, elegidos, serviciosProf, servSel, opcionSel, servInfo]);
 
   const ctxKey = contexto ? `${contexto.professionalId}|${contexto.serviceIds.join(",")}` : "";
-
-  // ── Días disponibles (solo turno normal; en sobreturno no se usa el motor) ──
+ 
   useEffect(() => {
     setDiaSel(""); setSlots([]); setSlotSel(null); setAvailabilityId("");
     if (sobreturno || !ctxKey) { setDias([]); return; }
@@ -255,8 +230,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       setDias(data.days || []);
     })();
   }, [ctxKey, verMes.year, verMes.month, sobreturno]);
-
-  // ── Horarios del día elegido (solo turno normal) ──
+ 
   useEffect(() => {
     setSlots([]); setSlotSel(null);
     if (sobreturno || !ctxKey || !diaSel) return;
@@ -268,8 +242,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       setAvailabilityId(data.availabilityId || "");
     })();
   }, [diaSel]);
-
-  // ── Buscador de pacientes ──
+ 
   useEffect(() => {
     if (pacQuery.trim().length < 2) { setPacientes([]); setPacBuscado(false); return; }
     setPacBuscado(false);
@@ -286,8 +259,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     }, 300);
     return () => clearTimeout(t);
   }, [pacQuery]);
-
-  // ── Helpers ──
+ 
   const toggleServicio = (serviceId) => {
     setElegidos((prev) => prev.includes(serviceId) ? prev.filter((s) => s !== serviceId) : [...prev, serviceId]);
   };
@@ -306,16 +278,14 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     setPacientes([]);
     setPacBuscado(false);
     setModalPacAbierto(false);
-  };
+  }; 
 
-  // Al cambiar el toggle de sobreturno, limpiamos la selección horaria
   const cambiarSobreturno = (on) => {
     setSobreturno(on);
     setSlotSel(null); setDiaSel("");
     setStFecha(""); setStHora("");
   };
-
-  // ── Crear el turno (normal o sobreturno) ──
+ 
   const confirmar = async () => {
     setError("");
     if (!contexto || !pacSel) return;
@@ -351,15 +321,12 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
 
       const finISO = new Date(new Date(startsAtISO).getTime() + contexto.duration * 60000).toISOString();
       const pacienteTxt = pacQuery;
-
-      // reset suave
+ 
       setSlotSel(null); setDiaSel(""); setNotas("");
       setStFecha(""); setStHora("");
       setPacQuery(""); setPacSel("");
       setElegidos([]); setOpcionSel(null);
-
-      // Resumen persistente en el banner global (aparece también cuando este
-      // panel se abre como modal desde otras pantallas, ej. Turnos).
+ 
       banner.success(`Turno agendado${sobreturno ? " (sobreturno)" : ""}`, {
         details: [
           ["Fecha", fmtFechaLarga(startsAtISO)],
@@ -386,8 +353,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       setGuardando(false);
     }
   };
-
-  // ── Estado del botón + qué falta para agendar ──
+ 
   const horarioListo = sobreturno ? (stFecha && stHora) : slotSel;
   const puedeConfirmar = contexto && horarioListo && pacSel && !guardando;
 
@@ -400,8 +366,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     if (!slotSel) faltantes.push("elegir un horario");
   }
   if (!pacSel) faltantes.push("seleccionar un paciente");
-
-  // Fin estimado del sobreturno
+ 
   const stFin = (sobreturno && stFecha && stHora && contexto)
     ? fmtHora(new Date(new Date(`${stFecha}T${stHora}:00.000Z`).getTime() + contexto.duration * 60000).toISOString())
     : "";
@@ -414,17 +379,14 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   });
 
   return (
-    <div>
-      {/* Encabezado + banner solo fuera del modal. Embebido (en Turnera),
-          el título y el BannerSlot los pone esa página. */}
+    <div> 
       {!embedded && (
         <PageHeader
           title="Reservar Turno"
           subtitle="Elegí por profesional o por servicio, seleccioná día y horario, y asigná el paciente."
         />
       )}
-
-      {/* Pestañas + toggle de sobreturno (no aplican al profesional) */}
+ 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {!esProfesional ? (
           <div style={{ display: "flex", gap: 8 }}>
@@ -439,8 +401,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
-
-        {/* ── COLUMNA IZQUIERDA: SELECCIÓN ── */}
+ 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
           {modo === "profesional" ? (
@@ -495,7 +456,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                   {opciones.map((op) => {
                     const on = opcionSel?.professionalServiceId === op.professionalServiceId;
                     const sinTurno = !op.nextSlot;
-                    const clickable = sobreturno || !sinTurno; // en sobreturno se puede elegir igual
+                    const clickable = sobreturno || !sinTurno;  
                     return (
                       <div key={op.professionalServiceId}
                         onClick={() => clickable && elegirOpcion(op)}
@@ -512,8 +473,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
               </div>
             </>
           )}
-
-          {/* Resumen (duración / precio) */}
+ 
           {contexto && (
             <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: "#fff" }}>
               <div style={resRow}><span style={{ color: "#64748b" }}>Duración{contexto.serviceIds.length > 1 ? " total" : ""}</span><strong>{contexto.duration} min</strong></div>
@@ -528,10 +488,8 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
             </div>
           )}
         </div>
-
-        {/* ── COLUMNA DERECHA: DÍA/HORARIO (o FECHA/HORA) + PACIENTE ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Calendario siempre visible: en gris hasta que se elija qué reservar */}
+ 
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}> 
           {!contexto && !sobreturno && (
             <div>
               <label style={lbl}>Día</label>
@@ -602,8 +560,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                   </div>
                 </>
               )}
-
-              {/* Paciente */}
+ 
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                   <label style={{ ...lbl, marginBottom: 0 }}>Paciente</label>
@@ -657,8 +614,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
           )}
         </div>
       </div>
-
-      {/* Modal de alta de paciente (compartido con la pestaña Pacientes) */}
+ 
       <PacienteFormModal
         isOpen={modalPacAbierto}
         onClose={() => setModalPacAbierto(false)}
@@ -669,8 +625,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     </div>
   );
 }
-
-// ── estilos compartidos ──
+ 
 const lbl = { fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 };
 const sel = { width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 14 };
 const vacio = { padding: "12px", fontSize: 12, color: MUTED };

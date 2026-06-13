@@ -1,16 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-// ============================================================
-//  Sistema de banners reutilizable (plantilla para todas las hojas)
-//
-//  · Cualquier página llama a useBanner().success(...) para mostrar un
-//    resumen persistente de la última acción.
-//  · El banner NO desaparece solo con el tiempo.
-//  · Se borra solo al CAMBIAR de pestaña/ruta (como si se cerrara), o a mano.
-//  · Para posicionarlo debajo del título de cada pestaña, la página coloca
-//    <BannerSlot /> justo después de su título/subtítulo.
-// ============================================================
+
 
 const BannerContext = createContext(null);
 

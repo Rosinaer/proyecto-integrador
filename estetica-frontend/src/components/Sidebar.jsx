@@ -39,8 +39,6 @@ function Sidebar({ open = true, onClose, onNavigate }) {
 
   useEffect(() => {
     if (!token) return;
-    // El badge de "Reprogramar" solo aplica a roles que ven esa pantalla
-    // (admin/recepción). Para un profesional ni siquiera disparamos el fetch.
     if (!puede(user?.role, "reprogramar")) {
       setPendientes(0);
       return;

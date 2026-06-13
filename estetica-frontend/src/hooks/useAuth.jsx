@@ -28,8 +28,7 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  const login = (data) => {
-    // Solo guardamos si realmente vino un usuario en los datos
+  const login = (data) => { 
     if (data.user && data.token) {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
@@ -44,14 +43,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
-    setToken(null); // <-- BORRAMOS EL TOKEN AL SALIR
+    setToken(null);  
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token, // <-- ESTÁ DISPONIBLE PARA TODOS
+        token, 
         login,
         logout,
         isLoading,

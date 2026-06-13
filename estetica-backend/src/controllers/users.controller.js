@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import prisma from '../config/prisma.js';
 
-// ── Perfil propio (cualquier usuario logueado, sobre sus propios datos) ──
+
 export const obtenerMiPerfil = async (req, res) => {
   try {
     const usuario = await prisma.user.findUnique({
@@ -10,8 +10,7 @@ export const obtenerMiPerfil = async (req, res) => {
     });
     if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
 
-    // Si la persona también tiene ficha de profesional, la devolvemos para que
-    // pueda editar su rol/especialidad y bio desde "Mi Perfil".
+
     const profesional = await prisma.professional.findUnique({
       where: { peopleId: usuario.peopleId },
       select: { id: true, specialty: true, bio: true, active: true },
@@ -111,12 +110,20 @@ export const obtenerUsuarioPorId = async (req, res) => {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
 
+    
+    const profesional = await prisma.professional.findUnique({
+      where: { peopleId: usuario.peopleId },
+      select: { specialty: true, bio: true },
+    });
+
     res.json({
       id: usuario.id,
       nombre: usuario.person.name,
       email: usuario.person.email,
       rol: usuario.role,
-      activo: usuario.active
+      activo: usuario.active,
+      specialty: profesional?.specialty || "",
+      bio: profesional?.bio || "",
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -127,8 +134,7 @@ export const crearUsuario = async (req, res) => {
   try {
     const { nombre, email, document, documentType, phone, password, rol, cuilCuit, confirmLink, specialty, bio } = req.body;
 
-    // 1) El email es la credencial de login: no puede repetirse entre usuarios.
-    //    (Sí puede coincidir con el de un paciente que no tiene login.)
+
     const yaEsUsuario = await prisma.people.findFirst({
       where: { email, user: { isNot: null } }
     });
@@ -139,8 +145,7 @@ export const crearUsuario = async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const esProfesional = rol === 'PROFESSIONAL';
 
-    // 2) Si se cargó un documento real, la identidad es ese documento: buscamos
-    //    si ya existe la persona para darle login en vez de duplicarla.
+    
     const docReal = document && document.trim() && document.trim() !== "00000000";
     if (docReal) {
       const tipo = documentType || "DNI";
@@ -168,8 +173,8 @@ export const crearUsuario = async (req, res) => {
             },
           });
         }
-        // Confirmado: se crea el usuario sobre la persona existente. Si el rol es
-        // PROFESSIONAL y aún no tiene ficha, la creamos en la misma transacción.
+
+        
         const user = await prisma.$transaction(async (tx) => {
           const u = await tx.user.create({
             data: { peopleId: existente.id, passwordHash: hash, role: rol },
@@ -188,8 +193,7 @@ export const crearUsuario = async (req, res) => {
       }
     }
 
-    // 3) Persona nueva (o sin documento cargado): se crea people + user. Si el rol
-    //    es PROFESSIONAL, creamos también su ficha en la misma transacción.
+
     const nuevaPersona = await prisma.$transaction(async (tx) => {
       const persona = await tx.people.create({
         data: {
@@ -257,17 +261,14 @@ export const actualizarUsuario = async (req, res) => {
         });
       }
 
-      // Coherencia rol <-> ficha de profesional. El rol es el acceso; la ficha
-      // son los datos. Tener ficha de profesional ⇒ rol Profesional o Admin.
+      
       if (rol !== undefined) {
         const ficha = await tx.professional.findUnique({
           where: { peopleId: usuarioActualizado.peopleId },
         });
 
         if (rol === 'PROFESSIONAL') {
-          // El rol Profesional exige una ficha vigente: la creamos si no existe
-          // o la reactivamos si estaba archivada. Así no queda un profesional
-          // sin ficha (que rompía el scoping de su agenda/turnos).
+          
           if (!ficha) {
             await tx.professional.create({
               data: {
@@ -276,16 +277,21 @@ export const actualizarUsuario = async (req, res) => {
                 bio: bio || null,
               },
             });
-          } else if (ficha.active === false) {
-            await tx.professional.update({ where: { id: ficha.id }, data: { active: true } });
+          } else {
+            await tx.professional.update({
+              where: { id: ficha.id },
+              data: {
+                active: true,
+                ...(specialty !== undefined && { specialty }),
+                ...(bio !== undefined && { bio: bio || null }),
+              },
+            });
           }
         } else if (rol !== 'ADMIN' && ficha && ficha.active !== false) {
-          // Baja a un rol sin ficha (Recepción/Paciente): la ficha pasa a
-          // histórico (soft-delete), no se borra. Sus turnos pasados quedan.
+          
           await tx.professional.update({ where: { id: ficha.id }, data: { active: false } });
         }
-        // ADMIN: si ya tiene ficha la conservamos como está; si no, no creamos
-        // una (un admin sin ficha es válido).
+        
       }
     });
 
@@ -295,7 +301,7 @@ export const actualizarUsuario = async (req, res) => {
   }
 };
 
-// ¡Acá está la función que me había comido!
+
 export const eliminarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
@@ -349,15 +355,15 @@ export const desactivarUsuario = async (req, res) => {
     const usuario = await prisma.user.findUnique({ where: { id: String(id) } });
     if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
 
-    // Evitar desactivar al último ADMIN
+    
     if (usuario.role === 'ADMIN') {
       const adminsActivos = await prisma.user.count({
         where: { role: 'ADMIN', active: true }
       });
-      
+
       if (adminsActivos <= 1) {
-        return res.status(400).json({ 
-          mensaje: "¡Cuidado! No podés desactivar al último administrador activo del sistema." 
+        return res.status(400).json({
+          mensaje: "¡Cuidado! No podés desactivar al último administrador activo del sistema."
         });
       }
     }
@@ -392,7 +398,7 @@ export const verificarDocumento = async (req, res) => {
   try {
     const { documentType, document } = req.query;
     const doc = (document || "").trim();
-    // Sin documento (o el placeholder) no hay a quién buscar: alta normal.
+  
     if (!doc || doc === "00000000") {
       return res.json({ existe: false });
     }
@@ -404,8 +410,7 @@ export const verificarDocumento = async (req, res) => {
     if (!persona) {
       return res.json({ existe: false });
     }
-    // Devolvemos quién es y qué fichas tiene, SIN crear nada. El front decide
-    // si precargar datos (persona sin cuenta) o avisar (ya tiene usuario).
+
     return res.json({
       existe: true,
       tieneUser: !!persona.user,

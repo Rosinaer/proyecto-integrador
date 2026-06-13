@@ -15,7 +15,7 @@ const verificarToken = (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Acá guardamos en req.user (en inglés) y extraemos el role
+    
     req.user = {
       id: decoded.id,
       email: decoded.email,

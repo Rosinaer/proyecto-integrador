@@ -68,10 +68,7 @@ const formatFechaLarga = (iso) =>
   new Date(iso).toLocaleDateString("es-AR", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
-
-// ════════════════════════════════════════════════════════════
-// MODAL DETALLE DE TURNO
-// ════════════════════════════════════════════════════════════
+ 
 const ModalDetalleTurno = ({ turno, colorProf, onClose }) => {
   if (!turno) return null;
 
@@ -102,8 +99,7 @@ const ModalDetalleTurno = ({ turno, colorProf, onClose }) => {
   );
 
   return (
-    <div>
-      {/* Cabecera con color del profesional */}
+    <div> 
       <div style={{
         background: colorProf ? colorProf.bg : "#f5f3ff",
         borderLeft: `4px solid ${colorProf ? colorProf.border : "#6b21a8"}`,
@@ -197,10 +193,8 @@ const ModalDetalleTurno = ({ turno, colorProf, onClose }) => {
     </div>
   );
 };
+ 
 
-// ════════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL: CalendarioSemanal
-// ════════════════════════════════════════════════════════════
 const CalendarioSemanal = () => {
   const { token } = useAuth();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -211,8 +205,7 @@ const CalendarioSemanal = () => {
   const [weekStart,      setWeekStart]      = useState(() => getMonday(new Date()));
   const [filtroProf,     setFiltroProf]     = useState("");
   const [turnoSelec,     setTurnoSelec]     = useState(null);
-
-  // ─── Fetch ───────────────────────────────────────────────
+ 
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
@@ -231,21 +224,18 @@ const CalendarioSemanal = () => {
   }, [token, API]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  // ─── Mapa profesionalId → color ──────────────────────────
+ 
   const colorMap = useMemo(() => {
     const m = {};
     profesionales.forEach((p, i) => { m[p.id] = PALETA[i % PALETA.length]; });
     return m;
   }, [profesionales]);
-
-  // ─── Días de la semana (Lun → Sáb) ──────────────────────
+ 
   const weekDays = useMemo(
     () => Array.from({ length: 6 }, (_, i) => addDays(weekStart, i)),
     [weekStart]
   );
-
-  // ─── Grilla: grid[dayIdx][hora] = [turnos] ───────────────
+ 
   const grid = useMemo(() => {
     const g = {};
     weekDays.forEach((_, i) => {
@@ -253,10 +243,8 @@ const CalendarioSemanal = () => {
       HORAS.forEach(h => { g[i][h] = []; });
     });
     turnos.forEach(t => {
-      if (!t.startsAt) return;
-      // Filtro de profesional
-      if (filtroProf && t.professionalService?.professional?.id !== filtroProf) return;
-      // Filtro de semana
+      if (!t.startsAt) return; 
+      if (filtroProf && t.professionalService?.professional?.id !== filtroProf) return; 
       const d = new Date(t.startsAt);
       const dayIdx = weekDays.findIndex(wd => sameDay(wd, d));
       if (dayIdx < 0) return;
@@ -265,8 +253,7 @@ const CalendarioSemanal = () => {
     });
     return g;
   }, [turnos, weekDays, filtroProf]);
-
-  // ─── Conteo de turnos de la semana ───────────────────────
+ 
   const totalSemana = useMemo(() =>
     turnos.filter(t => {
       if (!t.startsAt) return false;
@@ -285,8 +272,7 @@ const CalendarioSemanal = () => {
 
   return (
     <div>
-
-      {/* ── ENCABEZADO ───────────────────────────────────── */}
+ 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap", gap: "14px" }}>
         <div>
           <h2 style={{ color: "#6b21a8", margin: 0, fontSize: "1.6rem" }}>Agenda Semanal</h2>
@@ -299,7 +285,7 @@ const CalendarioSemanal = () => {
         </div>
 
         <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-          {/* Filtro profesional */}
+  
           <select
             value={filtroProf}
             onChange={e => setFiltroProf(e.target.value)}
@@ -314,8 +300,7 @@ const CalendarioSemanal = () => {
               <option key={p.id} value={p.id}>{p.person?.name}</option>
             ))}
           </select>
-
-          {/* Navegación */}
+ 
           <div style={{ display: "flex", gap: "4px" }}>
             <button
               onClick={() => setWeekStart(w => addDays(w, -7))}
@@ -338,8 +323,7 @@ const CalendarioSemanal = () => {
           </div>
         </div>
       </div>
-
-      {/* ── LEYENDA DE PROFESIONALES ─────────────────────── */}
+ 
       <div style={{ display: "flex", gap: "16px", marginBottom: "14px", flexWrap: "wrap" }}>
         {profesionales.map((p, i) => {
           const c = PALETA[i % PALETA.length];
@@ -369,8 +353,7 @@ const CalendarioSemanal = () => {
           );
         })}
       </div>
-
-      {/* ── GRILLA ───────────────────────────────────────── */}
+ 
       <div style={{
         overflowX: "auto",
         borderRadius: "12px",
@@ -383,8 +366,7 @@ const CalendarioSemanal = () => {
           minWidth: "860px",
         }}>
 
-          {/* ── FILA HEADER (días) ─────────────────────── */}
-          {/* Celda esquina vacía */}
+ 
           <div style={{ ...celdaTH, borderRight: "1px solid #e2e8f0" }} />
 
           {weekDays.map((d, i) => {
@@ -394,8 +376,7 @@ const CalendarioSemanal = () => {
                 ...celdaTH,
                 borderRight: i < 5 ? "1px solid #e2e8f0" : "none",
                 backgroundColor: esHoy ? "#f5f3ff" : "#fafbfc",
-              }}>
-                {/* Abreviatura del día */}
+              }}> 
                 <div style={{
                   fontSize: "11px", fontWeight: "700",
                   textTransform: "uppercase", letterSpacing: "0.07em",
@@ -403,8 +384,7 @@ const CalendarioSemanal = () => {
                   marginBottom: "4px",
                 }}>
                   {DIAS_ABREV[i]}
-                </div>
-                {/* Número del día */}
+                </div> 
                 <div style={{
                   width: "34px", height: "34px",
                   borderRadius: "50%",
@@ -415,16 +395,14 @@ const CalendarioSemanal = () => {
                   margin: "0 auto",
                 }}>
                   {d.getDate()}
-                </div>
-                {/* Fecha corta */}
+                </div> 
                 <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "3px" }}>
                   {formatFechaDia(d)}
                 </div>
               </div>
             );
           })}
-
-          {/* ── FILAS DE HORAS ────────────────────────── */}
+ 
           {HORAS.map((hora, horaIdx) => (
             <React.Fragment key={hora}>
 
@@ -483,8 +461,7 @@ const CalendarioSemanal = () => {
                             e.currentTarget.style.opacity = esCancelado ? "0.55" : "1";
                             e.currentTarget.style.transform = "scale(1)";
                           }}
-                        >
-                          {/* Hora + primer nombre del paciente */}
+                        > 
                           <div style={{
                             fontWeight: "700",
                             fontSize: "12px",
@@ -492,8 +469,7 @@ const CalendarioSemanal = () => {
                             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                           }}>
                             {formatHora(t.startsAt)} · {t.patient?.person?.name?.split(" ")[0] || "—"}
-                          </div>
-                          {/* Nombre del servicio */}
+                          </div> 
                           <div style={{
                             fontSize: "11px",
                             color: esCancelado ? "#94a3b8" : c.text,
@@ -501,8 +477,7 @@ const CalendarioSemanal = () => {
                             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                           }}>
                             {t.professionalService?.service?.name || "—"}
-                          </div>
-                          {/* Badge de estado inline (solo si no es CONFIRMED) */}
+                          </div> 
                           {t.status !== "CONFIRMED" && (
                             <div style={{
                               marginTop: "3px",
@@ -529,13 +504,11 @@ const CalendarioSemanal = () => {
 
         </div>
       </div>
-
-      {/* ── NOTA AL PIE ──────────────────────────────────── */}
+ 
       <p style={{ color: "#94a3b8", fontSize: "12px", marginTop: "12px", textAlign: "center" }}>
         Hacé clic en cualquier turno para ver el detalle completo · Usá el filtro de arriba para ver una sola profesional
       </p>
-
-      {/* ── MODAL DETALLE ────────────────────────────────── */}
+ 
       <Modal
         isOpen={!!turnoSelec}
         onClose={() => setTurnoSelec(null)}
@@ -554,8 +527,7 @@ const CalendarioSemanal = () => {
     </div>
   );
 };
-
-// ─── Estilos compartidos ──────────────────────────────────────
+ 
 const celdaTH = {
   padding: "12px 8px",
   textAlign: "center",

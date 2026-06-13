@@ -1,6 +1,3 @@
-// El asterisco de obligatorio se decide DESDE el componente: si recibe
-// `required`, agrega un * rojo. Con label va al lado del label; sin label,
-// queda flotando arriba a la derecha del campo.
 export const Input = ({ label, id, type = "text", required, ...props }) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "5px", width: "100%" }}>

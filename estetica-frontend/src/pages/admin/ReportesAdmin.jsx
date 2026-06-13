@@ -113,8 +113,7 @@ const ReportesAdmin = () => {
     const cancelacion = total > 0 ? Math.round((100 * cancelados) / total) : null;
     const ingresos = turnos.reduce((acc, t) => acc + pagadoDe(t), 0);
     const ticket = realizados > 0 ? ingresos / realizados : 0;
-
-    // Ranking de servicios (excluye cancelados = demanda efectiva)
+ 
     const ranking = {};
     for (const t of turnos) {
       if (t.status === "CANCELLED") continue;
@@ -139,8 +138,7 @@ const ReportesAdmin = () => {
       />
 
       {error && <div style={S.alertError}>{error}</div>}
-
-      {/* ── Filtros ── */}
+ 
       <div style={{ ...S.card, marginBottom: "20px" }}>
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "2", minWidth: "200px" }}>
@@ -168,8 +166,7 @@ const ReportesAdmin = () => {
       {cargando ? (
         <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Calculando reportes...</p>
       ) : (
-        <>
-          {/* ── Paneles KPI ── */}
+        <> 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                         gap: "16px", marginBottom: "24px" }}>
             <Kpi label="Ingresos" value={moneda(r.ingresos)} color="#16a34a" icon="💰" />
@@ -181,8 +178,7 @@ const ReportesAdmin = () => {
             <Kpi label="Total de turnos" value={r.total} icon="📋" />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}>
-            {/* ── Servicios más solicitados ── */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}> 
             <div style={S.card}>
               <h3 style={S.sectionTitle}>Servicios más solicitados</h3>
               {r.rankingArr.length === 0 ? (
@@ -206,8 +202,7 @@ const ReportesAdmin = () => {
                 </div>
               )}
             </div>
-
-            {/* ── Desglose por estado ── */}
+ 
             <div style={S.card}>
               <h3 style={S.sectionTitle}>Turnos por estado</h3>
               {r.total === 0 ? (

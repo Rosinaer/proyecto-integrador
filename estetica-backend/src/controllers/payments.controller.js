@@ -2,13 +2,12 @@ import prisma from '../config/prisma.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { PAYMENT_METHODS, PAYMENT_TYPES } from '../constants/payments.js';
 
-// CREAR PAGO
 
 export const crearPago = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
   const { amount, method, type } = req.body;
 
-  // Validaciones
+  
   if (!amount || !method || !type) {
     return res.status(400).json({
       mensaje: 'amount, method y type son obligatorios',
@@ -33,7 +32,7 @@ export const crearPago = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verificar que el turno existe
+  
   const turno = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: { payments: true },
@@ -43,14 +42,14 @@ export const crearPago = asyncHandler(async (req, res) => {
     return res.status(404).json({ mensaje: 'Turno no encontrado' });
   }
 
-  // No permitir pagos en turnos cancelados
+  
   if (turno.status === 'CANCELLED') {
     return res.status(400).json({
       mensaje: 'No se puede registrar un pago en un turno cancelado',
     });
   }
 
-  // Calcular total ya pagado (sin contar reembolsos)
+  
   const totalPagado = turno.payments
     .filter((p) => !p.isRefund)
     .reduce((acc, p) => acc + Number(p.amount), 0);
@@ -66,13 +65,13 @@ export const crearPago = asyncHandler(async (req, res) => {
     });
   }
 
-  // Determinar nuevo estado de pago del turno
+  
   let nuevoPaymentStatus = 'PARTIAL';
   if (nuevoTotal >= precioFinal) {
     nuevoPaymentStatus = 'COMPLETED';
   }
 
-  // Crear pago y actualizar estado en una transacción
+  
   const resultado = await prisma.$transaction(async (tx) => {
     const pago = await tx.payment.create({
       data: {

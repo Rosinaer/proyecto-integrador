@@ -1,7 +1,8 @@
 import prisma from '../config/prisma.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer'; // Agregado para los correos
+import nodemailer from 'nodemailer'; 
+
 
 const validarEmail = (email) => {
   const regex = /\S+@\S+\.\S+/;
@@ -121,8 +122,6 @@ export const login = async (req, res) => {
       user: {
         id: persona.user.id,
         role: persona.user.role,
-        // Si es profesional, el front necesita su id de Professional para
-        // acotar dashboard/agendas a lo propio. Para el resto va null.
         professionalId: persona.professional?.id ?? null,
         person: {
           name: persona.name,
@@ -166,9 +165,6 @@ export const perfil = async (req, res) => {
   }
 };
 
-// ==========================================
-// NUEVAS FUNCIONES DE RECUPERACIÓN DE CONTRASEÑA
-// ==========================================
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',

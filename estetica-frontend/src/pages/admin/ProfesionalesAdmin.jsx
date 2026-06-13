@@ -8,6 +8,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { puedeEditar } from "../../config/permisos";
 import { useBanner } from "../../components/ui/Banner";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { TEL_PAIS, TEL_AREA_DEFAULT } from "../../config/clinica";
+import { armarTelefono, validarTelefono, partirTelefono } from "../../utils/telefono";
 
 const TIPOS_DOC = ["DNI", "PASSPORT", "OTHER"];
 const DOC_LABEL = { DNI: "DNI", PASSPORT: "Pasaporte", OTHER: "Otro" };
@@ -32,7 +34,8 @@ const ProfesionalesAdmin = () => {
     documentType: "DNI",
     document: "",
     email: "",
-    phone: "",
+    area: TEL_AREA_DEFAULT,
+    numero: "",
     specialty: "",
     bio: "",
     googleCalendarId: "",
@@ -50,8 +53,7 @@ const ProfesionalesAdmin = () => {
   const banner = useBanner();
   const navigate = useNavigate();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
-  // Primero los activos, luego los inactivos; alfabético dentro de cada grupo.
+ 
   const ordenarPorEstadoYNombre = (lista) => {
     const nombre = (p) => (p.person?.name || p.name || "").toLowerCase();
     return [...lista].sort((a, b) => {
@@ -78,8 +80,7 @@ const ProfesionalesAdmin = () => {
   useEffect(() => {
     obtenerProfesionales();
   }, []);
-
-  // ── Crear / editar ──
+ 
   const abrirModalCrear = () => {
     setModoEdicion(false);
     setProfesionalEditandoId(null);
@@ -94,12 +95,14 @@ const ProfesionalesAdmin = () => {
     setProfesionalEditandoId(p.id);
     setErrorForm("");
     setConfirmDataProf(null);
+    const { area, numero } = partirTelefono(p.person?.phone || p.phone || "");
     setFormData({
       name: p.person?.name || p.name || "",
       documentType: p.person?.documentType || "DNI",
       document: p.person?.document || "",
       email: p.person?.email || p.email || "",
-      phone: p.person?.phone || p.phone || "",
+      area: area || TEL_AREA_DEFAULT,
+      numero: numero || "",
       specialty: p.specialty || "",
       bio: p.bio || "",
       googleCalendarId: p.googleCalendarId || "",
@@ -116,6 +119,14 @@ const ProfesionalesAdmin = () => {
 
   const doGuardarProf = async (confirmLink) => {
     setErrorForm("");
+ 
+    const errTel = validarTelefono({ area: formData.area, numero: formData.numero });
+    if (errTel) {
+      setErrorForm(errTel);
+      return;
+    }
+    const telefono = armarTelefono({ area: formData.area, numero: formData.numero, pais: TEL_PAIS });
+
     setCargandoForm(true);
     try {
       const url = modoEdicion
@@ -124,22 +135,23 @@ const ProfesionalesAdmin = () => {
       const method = modoEdicion ? "PATCH" : "POST";
 
       let payload;
-      if (modoEdicion) {
-        // En edición no se manda email ni password (el backend no los toca acá)
+      if (modoEdicion) { 
         payload = {
           name: formData.name,
           documentType: formData.documentType,
           document: formData.document,
-          phone: formData.phone,
+          phone: telefono,
           specialty: formData.specialty,
           bio: formData.bio,
           googleCalendarId: formData.googleCalendarId,
           cuilCuit: formData.cuilCuit,
         };
-      } else {
-        payload = { ...formData };
+      } else { 
+        const { area, numero, ...resto } = formData;
+        payload = { ...resto, phone: telefono };
         if (!payload.bio) delete payload.bio;
-        if (!payload.googleCalendarId) delete payload.googleCalendarId;
+        if (!payload.googleCalendarId) delete payload.googleCalendarId; 
+        if (!payload.password) delete payload.password;
         if (confirmLink) payload.confirmLink = true;
       }
 
@@ -153,8 +165,7 @@ const ProfesionalesAdmin = () => {
       });
 
       const datos = await respuesta.json();
-
-      // La persona ya existe (otro rol): pedimos confirmación en vez de cortar.
+ 
       if (!respuesta.ok && datos.needsConfirmation) {
         setConfirmDataProf(datos);
         return;
@@ -170,6 +181,7 @@ const ProfesionalesAdmin = () => {
           ["Documento", `${DOC_LABEL[payload.documentType] || payload.documentType || ""} ${payload.document || ""}`.trim() || "—"],
           ["Teléfono", payload.phone || "—"],
           ["CUIL/CUIT", payload.cuilCuit || "—"],
+          ["Acceso al sistema", !modoEdicion && payload.password ? "Sí (usuario creado)" : "—"],
         ],
       });
       obtenerProfesionales();
@@ -179,8 +191,7 @@ const ProfesionalesAdmin = () => {
       setCargandoForm(false);
     }
   };
-
-  // ── Activar / desactivar ──
+ 
   const confirmarCambioEstado = (p) => {
     setProfesionalSeleccionado(p);
     setModalEstadoAbierto(true);
@@ -292,8 +303,7 @@ const ProfesionalesAdmin = () => {
           );
         })}
       </Table>
-
-      {/* ── Modal Crear / Editar ── */}
+ 
       <Modal
         isOpen={modalFormAbierto}
         onClose={() => setModalFormAbierto(false)}
@@ -353,12 +363,30 @@ const ProfesionalesAdmin = () => {
             disabled={modoEdicion}
           />
 
-          <Input
-            type="text" placeholder="Teléfono" autoComplete="off"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            required
-          />
+          <div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <span style={{ color: "#64748b", fontSize: 14 }}>+{TEL_PAIS}</span>
+              <input
+                type="text" inputMode="numeric" placeholder="Área" autoComplete="off"
+                value={formData.area}
+                onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                maxLength={4}
+                style={{ padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1", width: 80, boxSizing: "border-box" }}
+                required
+              />
+              <div style={{ flex: 1 }}>
+                <Input
+                  type="text" inputMode="numeric" placeholder="Número (sin 0 ni 15)" autoComplete="off"
+                  value={formData.numero}
+                  onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              Se guarda como {armarTelefono({ area: formData.area, numero: formData.numero, pais: TEL_PAIS }) || "—"} para WhatsApp.
+            </span>
+          </div>
 
           <Input
             type="text" placeholder="CUIL/CUIT (opcional)" autoComplete="off"
@@ -388,12 +416,17 @@ const ProfesionalesAdmin = () => {
           />
 
           {!modoEdicion && (
-            <Input
-              type="password" placeholder="Contraseña" autoComplete="new-password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <Input
+                type="password" placeholder="Contraseña (opcional · crea acceso al sistema)" autoComplete="new-password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              />
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                Dejala vacía para registrar al profesional sin acceso al sistema.
+                Si cargás una contraseña, además se le crea el usuario para iniciar sesión.
+              </span>
+            </div>
           )}
 
           {errorForm && (
@@ -411,7 +444,7 @@ const ProfesionalesAdmin = () => {
         </form>
       </Modal>
 
-      {/* ── Modal Activar / Desactivar ── */}
+
       <Modal isOpen={modalEstadoAbierto} onClose={() => setModalEstadoAbierto(false)} title="Confirmar Acción">
         <p>
           ¿Seguro que deseas {profesionalSeleccionado?.active ? "desactivar" : "activar"} a{" "}
