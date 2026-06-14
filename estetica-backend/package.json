@@ -6,7 +6,8 @@
   "scripts": {
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --forceExit",
     "dev": "nodemon --env-file=.env app.js",
-    "start": "npx prisma migrate deploy && node app.js"
+    "start": "npx prisma migrate deploy && node app.js",
+    "render-start": "wait-on postgresql://usuario:password@host:puerto/db && npx prisma migrate deploy && node app.js"
   },
   "keywords": [],
   "author": "",
