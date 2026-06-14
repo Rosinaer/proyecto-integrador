@@ -23,8 +23,8 @@ const app = express();
 
 
 const dominiosPermitidos = [
-  'http://localhost:5173',  
-  'http://localhost:3000',  
+  'http://localhost:5173',
+  'http://localhost:3000',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -36,7 +36,7 @@ app.use(cors({
       callback(new Error('Bloqueado por CORS'));
     }
   },
-  credentials: true 
+  credentials: true
 }));
 
 
@@ -73,10 +73,6 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
 
 
 if (process.env.NODE_ENV !== 'test') {
