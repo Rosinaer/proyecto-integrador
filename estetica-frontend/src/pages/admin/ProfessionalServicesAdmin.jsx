@@ -53,8 +53,7 @@ const ProfessionalServicesAdmin = () => {
   return (
     <div>
       <PageHeader title="Servicios por Profesional" />
-
-      {/* Selector del profesional, debajo del título */}
+ 
       <div style={{ maxWidth: "360px", marginBottom: "24px" }}>
         <label style={{ display: "block", fontSize: "13px", color: "#64748b", marginBottom: "6px" }}>
           Profesional

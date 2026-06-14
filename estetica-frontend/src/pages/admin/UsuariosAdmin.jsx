@@ -6,9 +6,7 @@ import { Modal } from "../../components/ui/Modal";
 import { Input } from "../../components/ui/Input";
 import { useAuth } from "../../hooks/useAuth";
 import { useBanner } from "../../components/ui/Banner";
-
-// Paciente NO es un rol asignable: queda para el futuro. El alta de usuario
-// asigna el rol = nivel de acceso (Admin > Recepción > Profesional).
+ 
 const ROLES = [
   { value: "RECEPTIONIST", label: "Recepcionista" },
   { value: "ADMIN", label: "Administrador" },
@@ -36,8 +34,7 @@ const UsuariosAdmin = () => {
   const [formData, setFormData] = useState(VACIO_USER);
   const [errorForm, setErrorForm] = useState("");
   const [cargandoForm, setCargandoForm] = useState(false);
-
-  // ── Estado del paso "documento primero" (solo en alta) ──
+ 
   const [docVerificado, setDocVerificado] = useState(false);
   const [verificandoDoc, setVerificandoDoc] = useState(false);
   const [resultadoDoc, setResultadoDoc] = useState(null); // { existe, tieneUser, esPaciente, esProfesional, persona }
@@ -85,12 +82,12 @@ const UsuariosAdmin = () => {
     setModalFormAbierto(true);
   };
 
-  const abrirModalEditar = (u) => {
+  const abrirModalEditar = async (u) => {
     setModoEdicion(true);
     setUsuarioEditandoId(u.id);
     setErrorForm("");
-    setDocVerificado(true);   // en edición no aplica el paso de documento
-    setResultadoDoc(null);
+    setDocVerificado(true);    
+    setResultadoDoc(null); 
     setFormData({
       nombre: u.nombre || u.person?.name || u.name || "",
       email: u.email || u.person?.email || "",
@@ -102,9 +99,25 @@ const UsuariosAdmin = () => {
       bio: "",
     });
     setModalFormAbierto(true);
+ 
+    try {
+      const res = await fetch(`${apiUrl}/users/${u.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (res.ok) {
+        setFormData((f) => ({
+          ...f,
+          nombre: data.nombre ?? f.nombre,
+          email: data.email ?? f.email,
+          rol: data.rol ?? f.rol,
+          specialty: data.specialty ?? f.specialty,
+          bio: data.bio ?? f.bio,
+        }));
+      }
+    } catch {
+      /* si falla, queda lo de la fila y el usuario puede recompletar */
+    }
   };
-
-  // Cambiar el documento invalida una verificación previa: hay que volver a verificar.
+ 
   const cambiarDocumento = (campo, valor) => {
     setFormData((f) => ({ ...f, [campo]: valor }));
     if (!modoEdicion) {
@@ -124,8 +137,7 @@ const UsuariosAdmin = () => {
 
       setResultadoDoc(data);
       setDocVerificado(true);
-
-      // Persona existente sin cuenta: precargamos lo que ya sabemos.
+ 
       if (data.existe && !data.tieneUser && data.persona) {
         setFormData((f) => ({
           ...f,
@@ -133,6 +145,8 @@ const UsuariosAdmin = () => {
           email: data.persona.email || f.email,
           specialty: data.persona.specialty || f.specialty,
           bio: data.persona.bio || f.bio,
+          // Si la persona ya tiene ficha de profesional, sugerimos el rol Profesional
+          rol: data.esProfesional ? "PROFESSIONAL" : f.rol,
         }));
       }
     } catch (err) {
@@ -165,9 +179,7 @@ const UsuariosAdmin = () => {
       if (formData.rol === "PROFESSIONAL") {
         payload.specialty = formData.specialty;
         payload.bio = formData.bio;
-      }
-      // La persona ya existía (sin cuenta) y la verificamos en pantalla: confirmamos
-      // directamente para que el backend le cree el acceso sin volver a preguntar.
+      } 
       if (!modoEdicion && resultadoDoc?.existe && !resultadoDoc?.tieneUser) {
         payload.confirmLink = true;
       }
@@ -270,8 +282,7 @@ const UsuariosAdmin = () => {
 
       <Modal isOpen={modalFormAbierto} onClose={() => setModalFormAbierto(false)} title={modoEdicion ? "Editar Usuario" : "Crear Nuevo Usuario"}>
         <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-
-          {/* ── PASO 1 (solo alta): DOCUMENTO PRIMERO ── */}
+ 
           {!modoEdicion && (
             <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px" }}>
               <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>
@@ -297,9 +308,7 @@ const UsuariosAdmin = () => {
                 <Button type="button" onClick={verificarDoc} disabled={!docCargado || verificandoDoc || docVerificado}>
                   {verificandoDoc ? "Verificando…" : docVerificado ? "✓ Verificado" : "Verificar"}
                 </Button>
-              </div>
-
-              {/* Resultado de la verificación */}
+              </div> 
               {docVerificado && resultadoDoc && (
                 <div style={{ marginTop: 10, fontSize: 13 }}>
                   {bloqueadoPorUser ? (
@@ -332,9 +341,7 @@ const UsuariosAdmin = () => {
             <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}>
               {errorForm}
             </div>
-          )}
-
-          {/* ── PASO 2: DATOS DEL USUARIO (habilitado tras verificar) ── */}
+          )} 
           {puedeCompletar && (
             <>
               {!modoEdicion && (
@@ -347,8 +354,7 @@ const UsuariosAdmin = () => {
               <select value={formData.rol} onChange={(e) => setFormData({ ...formData, rol: e.target.value })} style={selectStyle}>
                 {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
-
-              {/* Datos extra de profesional: crean (o vinculan) su ficha */}
+ 
               {esProfesional && (
                 <div style={{ background: "#f8f4ff", border: "1px solid #e9d5ff", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ fontSize: 12, color: "#6b21a8", fontWeight: "bold" }}>Ficha de profesional</div>

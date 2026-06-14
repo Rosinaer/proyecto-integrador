@@ -55,7 +55,7 @@ const cajaError = {
   marginBottom: "12px",
 };
 
-export const GestionHorariosRecurrentes = ({ professionalId, token }) => {
+export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChange }) => {
   const banner = useBanner();
   const { user } = useAuth();
   // Recepción solo mira los horarios; Admin y el propio profesional editan.
@@ -93,13 +93,15 @@ export const GestionHorariosRecurrentes = ({ professionalId, token }) => {
       if (!res.ok) throw new Error(data.mensaje || data.error || "Error al cargar horarios");
       const lista = Array.isArray(data) ? data : [];
       setHorarios([...lista].sort((a, b) => a.dayOfWeek - b.dayOfWeek));
+      onCountChange?.(lista.length);
     } catch (err) {
       setError(err.message);
       setHorarios([]);
+      onCountChange?.(0);
     } finally {
       setCargando(false);
     }
-  }, [API, headers, professionalId]);
+  }, [API, headers, professionalId, onCountChange]);
 
   useEffect(() => {
     cargar();

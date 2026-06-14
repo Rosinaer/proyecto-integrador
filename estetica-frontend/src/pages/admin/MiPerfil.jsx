@@ -11,8 +11,7 @@ const PURPLE = "#6b21a8";
 const BORDER = "#cbd5e1";
 
 const DOC_LABEL = { DNI: "DNI", PASSPORT: "Pasaporte", OTHER: "Otro" };
-
-// Etiqueta y color por rol (para el indicador junto al título, igual que la ficha).
+ 
 const ROLES = {
   ADMIN:        { label: "Administrador", fg: "#6b21a8" },
   RECEPTIONIST: { label: "Recepción",     fg: "#0369a1" },
@@ -29,7 +28,7 @@ const MiPerfil = () => {
   const { user, token } = useAuth();
   const banner = useBanner();
 
-  const [perfil, setPerfil] = useState(null);   // { person, role, professional }
+  const [perfil, setPerfil] = useState(null);  
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
 
@@ -93,8 +92,7 @@ const MiPerfil = () => {
   const docTxt = persona.document ? `${DOC_LABEL[persona.documentType] || ""} ${persona.document}`.trim() : "—";
 
   return (
-    <div>
-      {/* TÍTULO CON INDICADOR DE ROL */}
+    <div> 
       <PageHeader
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -105,8 +103,7 @@ const MiPerfil = () => {
           </span>
         }
       />
-
-      {/* DATOS PERSONALES (mismo estilo que la ficha del profesional) */}
+ 
       <div
         style={{
           backgroundColor: "#f8fafc",
@@ -141,8 +138,7 @@ const MiPerfil = () => {
           </div>
         )}
       </div>
-
-      {/* SÓLO PROFESIONAL: sus servicios y horarios, igual que la ficha */}
+ 
       {profesional?.id && (
         <>
           <div style={{ marginBottom: "30px" }}>
@@ -153,8 +149,7 @@ const MiPerfil = () => {
           </div>
         </>
       )}
-
-      {/* CAMBIAR CONTRASEÑA */}
+ 
       <div
         style={{
           backgroundColor: "#f8fafc",
@@ -197,31 +192,30 @@ const MiPerfil = () => {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <div>
-              <label style={labelStyle}>Nueva contraseña</label>
-              <input
-                type={verPass ? "text" : "password"}
-                name="passwordNueva"
-                style={inputStyle}
-                value={formData.passwordNueva}
-                onChange={handleChange}
-                autoComplete="new-password"
-                required
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Confirmar nueva contraseña</label>
-              <input
-                type={verPass ? "text" : "password"}
-                name="confirmarPassword"
-                style={inputStyle}
-                value={formData.confirmarPassword}
-                onChange={handleChange}
-                autoComplete="new-password"
-                required
-              />
-            </div>
+          <div style={{ marginBottom: 16, maxWidth: 360 }}>
+            <label style={labelStyle}>Nueva contraseña</label>
+            <input
+              type={verPass ? "text" : "password"}
+              name="passwordNueva"
+              style={inputStyle}
+              value={formData.passwordNueva}
+              onChange={handleChange}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: 16, maxWidth: 360 }}>
+            <label style={labelStyle}>Confirmar nueva contraseña</label>
+            <input
+              type={verPass ? "text" : "password"}
+              name="confirmarPassword"
+              style={inputStyle}
+              value={formData.confirmarPassword}
+              onChange={handleChange}
+              autoComplete="new-password"
+              required
+            />
           </div>
 
           <p style={{ fontSize: 12, color: "#94a3b8", margin: "10px 0 0" }}>

@@ -1,3 +1,25 @@
+:root {
+  --c-bg: #f8fafc;
+  --c-surface: #ffffff;
+  --c-border: #e2e8f0;
+  --c-border-soft: #f1f5f9;
+  --c-line: #cbd5e1;
+
+  --c-text: #334155;
+  --c-text-subtle: #64748b;
+  --c-text-muted: #94a3b8;
+
+  --c-brand: #6b21a8;
+  --c-brand-strong: #581c87;
+  --c-brand-bg: #f3e5f5;
+
+  --c-danger: #d32f2f;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  --gradient-app: linear-gradient(to right, #f8f4ff, #fce4ec);
+}
 
 *,
 *::before,
@@ -8,21 +30,20 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: linear-gradient(to right, #f8f4ff, #fce4ec);
+  background: var(--gradient-app);
 }
 
-
 h2 {
-  color: #6a1b9a;
+  color: var(--c-brand);
 }
 
 .container {
   max-width: 900px;
   margin: 40px auto;
-  background: white;
+  background: var(--c-surface);
   padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 form {
@@ -32,23 +53,24 @@ form {
   justify-content: center;
 }
 
-input, select {
+input,
+select {
   padding: 8px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-line);
 }
 
 button {
   padding: 8px 12px;
   border: none;
-  background: #8e24aa;
-  color: white;
-  border-radius: 5px;
+  background: var(--c-brand);
+  color: var(--c-surface);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
 button:hover {
-  background: #6a1b9a;
+  background: var(--c-brand-strong);
 }
 
 table {
@@ -58,17 +80,17 @@ table {
 }
 
 th {
-  background: #8e24aa;
-  color: white;
+  background: var(--c-brand);
+  color: var(--c-surface);
   padding: 10px;
 }
 
 td {
   padding: 8px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--c-border);
   text-align: center;
 }
 
 tr:hover {
-  background: #f3e5f5;
+  background: var(--c-brand-bg);
 }

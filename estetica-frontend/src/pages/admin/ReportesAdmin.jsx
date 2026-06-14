@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 
+
 const ESTADOS = {
   PENDING:     { label: "Pendiente",  bg: "#fef9c3", fg: "#854d0e" },
   CONFIRMED:   { label: "Confirmado", bg: "#dcfce7", fg: "#166534" },
@@ -34,9 +35,9 @@ const S = {
   sectionTitle: { margin: "0 0 14px 0", color: "#6b21a8", fontSize: "1.15rem", fontWeight: "700" },
   kpi: { backgroundColor: "#fff", borderRadius: "12px", padding: "18px 20px",
          boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", minHeight: "104px",
-         display: "flex", flexDirection: "column", justifyContent: "space-between" },
+         display: "flex", flexDirection: "column", justifyContent: "space-between", minWidth: 0 },
   kpiLabel: { color: "#64748b", fontWeight: "600", fontSize: "0.9rem" },
-  kpiNumber: { color: "#6b21a8", fontSize: "2rem", fontWeight: "800", lineHeight: "1.1", marginTop: "8px" },
+  kpiNumber: { color: "#6b21a8", fontSize: "1.7rem", fontWeight: "800", lineHeight: "1.1", marginTop: "8px", overflowWrap: "anywhere" },
   alertError: { backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "8px",
                 padding: "10px 16px", fontSize: "13px", color: "#991b1b", marginBottom: "14px" },
 };
@@ -50,8 +51,8 @@ const Kpi = ({ label, value, color, icon }) => (
   </div>
 );
 
-const ReportesAdmin = () => {
-  const { token } = useAuth();
+const Dashboard = () => {
+  const { user, token } = useAuth();
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const hoy = new Date();
   const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
@@ -74,8 +75,7 @@ const ReportesAdmin = () => {
       .then((d) => setProfesionales(Array.isArray(d) ? d : []))
       .catch(() => setProfesionales([]));
   }, [token]);
-
-  const cargar = useCallback(async () => {
+const cargar = useCallback(async () => {
     if (!token || !desde || !hasta) return;
     setCargando(true);
     setError("");
@@ -89,7 +89,7 @@ const ReportesAdmin = () => {
     try {
       const res = await fetch(`${API}/appointments?${q}`, { headers: headers() });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al cargar reportes");
+      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al cargar dashboard");
       setTurnos(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
@@ -102,6 +102,8 @@ const ReportesAdmin = () => {
   useEffect(() => { cargar(); }, [cargar]);
 
   const r = useMemo(() => {
+    const hoyStr = localDateStr(new Date());
+    const turnosHoy = turnos.filter(t => t.startsAt?.startsWith(hoyStr)).length;
     const porEstado = {};
     for (const t of turnos) porEstado[t.status] = (porEstado[t.status] || 0) + 1;
     const total = turnos.length;
@@ -113,8 +115,7 @@ const ReportesAdmin = () => {
     const cancelacion = total > 0 ? Math.round((100 * cancelados) / total) : null;
     const ingresos = turnos.reduce((acc, t) => acc + pagadoDe(t), 0);
     const ticket = realizados > 0 ? ingresos / realizados : 0;
-
-    // Ranking de servicios (excluye cancelados = demanda efectiva)
+ 
     const ranking = {};
     for (const t of turnos) {
       if (t.status === "CANCELLED") continue;
@@ -127,20 +128,19 @@ const ReportesAdmin = () => {
       .slice(0, 8);
     const maxRank = rankingArr.length ? rankingArr[0].cantidad : 0;
 
-    return { porEstado, total, realizados, noShows, cancelados, asistencia, cancelacion,
+    return { porEstado, turnosHoy, total, realizados, noShows, cancelados, asistencia, cancelacion,
              ingresos, ticket, rankingArr, maxRank };
   }, [turnos]);
 
   return (
     <div style={{ width: "100%", boxSizing: "border-box" }}>
       <PageHeader
-        title="Reportes"
-        subtitle="Métricas del período seleccionado. Por defecto, el mes en curso y todos los profesionales."
+        title={`¡Hola, ${user?.person?.name || user?.name || "Admin"}! 👋`}
+        subtitle={<>Resumen de <strong>Espacio Senda</strong>.</>}
       />
 
       {error && <div style={S.alertError}>{error}</div>}
-
-      {/* ── Filtros ── */}
+ 
       <div style={{ ...S.card, marginBottom: "20px" }}>
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "2", minWidth: "200px" }}>
@@ -166,12 +166,17 @@ const ReportesAdmin = () => {
       </div>
 
       {cargando ? (
-        <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Calculando reportes...</p>
+        <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Calculando dashboard...</p>
       ) : (
-        <>
-          {/* ── Paneles KPI ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: "16px", marginBottom: "24px" }}>
+        <> 
+          <style>{`
+            .kpi-grid { display: grid; gap: 16px; margin-bottom: 24px;
+                        grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+            @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } }
+          `}</style>
+          <div className="kpi-grid">
+            <Kpi label="Turnos Hoy" value={r.turnosHoy} icon="📅" />
             <Kpi label="Ingresos" value={moneda(r.ingresos)} color="#16a34a" icon="💰" />
             <Kpi label="Turnos realizados" value={r.realizados} icon="✅" />
             <Kpi label="Tasa de asistencia" value={r.asistencia === null ? "—" : `${r.asistencia}%`} icon="📈" />
@@ -181,8 +186,7 @@ const ReportesAdmin = () => {
             <Kpi label="Total de turnos" value={r.total} icon="📋" />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}>
-            {/* ── Servicios más solicitados ── */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}> 
             <div style={S.card}>
               <h3 style={S.sectionTitle}>Servicios más solicitados</h3>
               {r.rankingArr.length === 0 ? (
@@ -206,8 +210,7 @@ const ReportesAdmin = () => {
                 </div>
               )}
             </div>
-
-            {/* ── Desglose por estado ── */}
+ 
             <div style={S.card}>
               <h3 style={S.sectionTitle}>Turnos por estado</h3>
               {r.total === 0 ? (
@@ -243,4 +246,4 @@ const ReportesAdmin = () => {
   );
 };
 
-export default ReportesAdmin;
+export default Dashboard;

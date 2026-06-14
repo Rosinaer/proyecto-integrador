@@ -72,7 +72,7 @@ const CategoriaServiciosAdmin = () => {
     setModalFormAbierto(true);
   };
 
-  // GUARDAR
+ 
   const guardarCategoria = async (e) => {
     e.preventDefault();
     setErrorForm("");
@@ -88,8 +88,7 @@ const CategoriaServiciosAdmin = () => {
       if (modoEdicion) {
         payload = { name: formData.name.trim() };
         await actualizarCategoria(categoriaEditandoId, payload);
-      } else {
-        // El orden se asigna automáticamente al final (no se pide a mano).
+      } else { 
         const siguienteOrden =
           categorias.reduce((max, c) => Math.max(max, c.displayOrder || 0), 0) + 1;
         payload = { name: formData.name.trim(), displayOrder: siguienteOrden };
@@ -106,8 +105,7 @@ const CategoriaServiciosAdmin = () => {
       setCargandoForm(false);
     }
   };
-
-  // REORDENAR (flechas): recalcula displayOrder automáticamente
+ 
   const mover = async (index, dir) => {
     const destino = index + dir;
     if (destino < 0 || destino >= categorias.length || reordenando) return;
@@ -125,8 +123,7 @@ const CategoriaServiciosAdmin = () => {
       });
       for (const c of cambios) {
         await actualizarCategoria(c.id, { displayOrder: c.displayOrder });
-      }
-      // Reflejamos el nuevo orden en pantalla
+      } 
       setCategorias(nuevo.map((c, i) => ({ ...c, displayOrder: i + 1 })));
       banner.success("Orden de categorías actualizado", {
         details: [["Categoría movida", item.name], ["Nueva posición", String(destino + 1)]],
@@ -211,8 +208,7 @@ const CategoriaServiciosAdmin = () => {
           </Fragment>
         ))}
       </Table>
-
-      {/* MODAL FORMULARIO */}
+ 
       <Modal isOpen={modalFormAbierto} onClose={() => setModalFormAbierto(false)}
         title={modoEdicion ? "Editar Categoría" : "Crear Nueva Categoría"}>
         {errorForm && <p style={{ color: "red", fontSize: "14px", textAlign: "center" }}>{errorForm}</p>}

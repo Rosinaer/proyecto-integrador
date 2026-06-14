@@ -10,19 +10,17 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box; /* el padding no estira el ancho total */
+  box-sizing: border-box;  
   transition: transform 0.25s ease;
 }
-
-/* --- ESTADOS ABIERTO / CERRADO (lo controla AdminLayout) --- */
+ 
 .sidebar.is-open {
   transform: translateX(0);
 }
 .sidebar.is-closed {
   transform: translateX(-100%);
 }
-
-/* --- ENCABEZADO DEL SIDEBAR (logo + botón colapsar) --- */
+ 
 .sidebar-top {
   display: flex;
   align-items: center;
@@ -70,8 +68,7 @@
 .sidebar li {
   margin-bottom: 8px;
 }
-
-/* --- ESTILO BASE DE LOS ENLACES --- */
+ 
 .sidebar a {
   color: white;
   text-decoration: none;
@@ -80,14 +77,12 @@
   border-radius: 8px;
   transition: all 0.2s ease;
 }
-
-/* --- HOVER --- */
+ 
 .sidebar a:hover {
   background: #374151;
   color: #d8b4fe;
 }
-
-/* --- PESTAÑA ACTIVA --- */
+ 
 .sidebar a.active {
   background-color: #6b21a8;
   color: white;
@@ -95,8 +90,7 @@
   border-left: 4px solid #d8b4fe;
   border-radius: 0 8px 8px 0;
 }
-
-/* --- INFO DEL USUARIO --- */
+ 
 .user-info {
   margin-bottom: 30px;
   padding: 12px;
@@ -110,16 +104,14 @@
   font-size: 0.9rem;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* corta el nombre con "..." si es largo */
+  text-overflow: ellipsis;  
 }
-
 .user-info span {
   font-size: 11px;
   color: #9ca3af;
   text-transform: uppercase;
 }
-
-/* --- BOTÓN SALIR --- */
+ 
 .logout {
   margin-top: 20px;
   margin-bottom: 10px;
@@ -138,4 +130,3 @@
 .logout:hover {
   background: #dc2626;
 }
-

@@ -82,9 +82,10 @@ export const crearProfesional = async (req, res) => {
       confirmLink
     } = req.body;
 
-    if (!name || !documentType || !document || !email || !phone || !specialty || !password) {
+
+    if (!name || !documentType || !document || !email || !phone || !specialty) {
       return res.status(400).json({
-        mensaje: 'name, documentType, document, email, phone, specialty y password son obligatorios',
+        mensaje: 'name, documentType, document, email, phone y specialty son obligatorios',
       });
     }
 
@@ -95,10 +96,10 @@ export const crearProfesional = async (req, res) => {
       });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
 
-    // Se verifica si ya existe un profesional con ese documento (el email ya
-    // no es único). Se busca la persona por tipo+número de documento.
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+
+
     const existente = await prisma.people.findFirst({
       where: {
         documentType: documentType || "DNI",
@@ -119,8 +120,7 @@ export const crearProfesional = async (req, res) => {
         });
       }
 
-      // La persona existe pero no es profesional: pedimos confirmación antes
-      // de asociarla (no la unimos en silencio).
+
       if (!confirmLink) {
         return res.status(409).json({
           needsConfirmation: true,
@@ -137,32 +137,41 @@ export const crearProfesional = async (req, res) => {
         });
       }
 
-      // Confirmado: se crea el profesional asociado a esa persona (y se
-      // completa cuilCuit en people si vino cargado).
-      if (cuilCuit !== undefined && cuilCuit !== "") {
-        await prisma.people.update({ where: { id: existente.id }, data: { cuilCuit } });
-      }
-      const nuevoProfesional = await prisma.professional.create({
-        data: {
-          peopleId: existente.id,
-          specialty,
-          bio: bio ? bio : null,
-          googleCalendarId: googleCalendarId ? googleCalendarId : null,
-        },
-        include: {
-          person: true
-        },
+
+      const creado = await prisma.$transaction(async (tx) => {
+        if (cuilCuit !== undefined && cuilCuit !== "") {
+          await tx.people.update({ where: { id: existente.id }, data: { cuilCuit } });
+        }
+
+        const prof = await tx.professional.create({
+          data: {
+            peopleId: existente.id,
+            specialty,
+            bio: bio ? bio : null,
+            googleCalendarId: googleCalendarId ? googleCalendarId : null,
+          },
+          include: {
+            person: true
+          },
+        });
+
+        if (passwordHash && !existente.user) {
+          await tx.user.create({
+            data: { peopleId: existente.id, passwordHash, role: 'PROFESSIONAL' },
+          });
+        }
+
+        return prof;
       });
 
       return res.status(201).json({
-        id: nuevoProfesional.id,
-        nombre: nuevoProfesional.person.name,
-        email: nuevoProfesional.person.email,
-        specialty: nuevoProfesional.specialty,
+        id: creado.id,
+        nombre: creado.person.name,
+        email: creado.person.email,
+        specialty: creado.specialty,
       });
     }
 
-    // Si no existe, creamos persona + profesional + usuario todo junto
     const nuevaPersona = await prisma.people.create({
       data: {
         name,
@@ -178,12 +187,15 @@ export const crearProfesional = async (req, res) => {
             googleCalendarId: googleCalendarId ? googleCalendarId : null,
           },
         },
-        user: {
-          create: {
-            passwordHash,
-            role: 'PROFESSIONAL'
+
+        ...(passwordHash && {
+          user: {
+            create: {
+              passwordHash,
+              role: 'PROFESSIONAL'
+            },
           },
-        },
+        }),
       },
       include: {
         professional: true,
@@ -196,7 +208,7 @@ export const crearProfesional = async (req, res) => {
       nombre: nuevaPersona.name,
       email: nuevaPersona.email,
       specialty: nuevaPersona.professional.specialty,
-      rol: nuevaPersona.user.role,
+      rol: nuevaPersona.user?.role ?? null, // null = quedó sin acceso al sistema
     });
   } catch (error) {
     if (error.code === 'P2002') {

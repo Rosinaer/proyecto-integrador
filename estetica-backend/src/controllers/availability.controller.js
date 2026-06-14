@@ -17,7 +17,7 @@ export const generarDisponibilidad = async (req, res) => {
       return res.status(404).json({ mensaje: 'Profesional no encontrado' });
     }
 
-    // Un PROFESSIONAL solo puede generar SU propia agenda (ADMIN pasa siempre).
+    
     if (!await verificarProfesional(id, req.user)) {
       return res.status(403).json({ mensaje: 'Solo podés generar tu propia agenda' });
     }
@@ -52,11 +52,6 @@ export const generarDisponibilidad = async (req, res) => {
         const horariosDelDia = horarios.filter((h) => h.dayOfWeek === diaSemana);
 
         for (const h of horariosDelDia) {
-          // Chequeamos existencia por (profesional, fecha, horario EXACTO).
-          // Antes se miraba solo (profesional, fecha): si un profesional tenía
-          // dos franjas el mismo día (ej. mañana y tarde), al existir la primera
-          // se salteaban las demás. Incluir start/end permite varias franjas y
-          // mantiene la idempotencia (regenerar no duplica la misma franja).
           const existe = await prisma.availability.findFirst({
             where: {
               professionalId: id,
@@ -103,8 +98,7 @@ export const revertirDisponibilidad = async (req, res) => {
     const inicioMes = new Date(year, month - 1, 1);
     const finMes    = new Date(year, month, 0);
 
-    // Solo se eliminan los slots SIN ningún turno asociado (de cualquier estado).
-    // Un slot con turnos no puede borrarse por la relación con Appointment.
+
     const resultado = await prisma.availability.deleteMany({
       where: {
         professionalId: id,
@@ -129,7 +123,7 @@ export const obtenerDisponibilidad = async (req, res) => {
       return res.status(404).json({ mensaje: 'Profesional no encontrado' });
     }
 
-    // Si vienen year y month filtra por mes, sino devuelve todo
+
     let where = { professionalId: id };
     if (year && month) {
       const inicioMes = new Date(year, month - 1, 1);
@@ -169,9 +163,7 @@ export const crearSlotManual = async (req, res) => {
       return res.status(400).json({ mensaje: 'date, startTime y endTime son obligatorios' });
     }
 
-    // Parseamos las horas en UTC (sufijo Z) para que coincidan con cómo se
-    // guardan los horarios recurrentes y cómo las lee el frontend. Sin la Z se
-    // interpretaban en hora local del servidor y el slot quedaba corrido.
+
     const start = new Date(`1970-01-01T${startTime}:00Z`);
     const end   = new Date(`1970-01-01T${endTime}:00Z`);
 
@@ -188,9 +180,7 @@ export const crearSlotManual = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
     }
 
-    // Se permiten varios slots por día siempre que NO se superpongan en horario.
-    // (Antes se bloqueaba cualquier slot existente en la fecha, lo que impedía
-    // cargar un rango posterior que no se pisaba con el ya creado.)
+
     const slotsDelDia = await prisma.availability.findMany({
       where: { professionalId: id, date: new Date(date) },
     });
@@ -235,8 +225,7 @@ export const actualizarSlot = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
     }
 
-    // No se puede modificar el horario de un slot que ya tiene turnos asociados:
-    // cambiaría el rango bajo turnos ya reservados.
+
     if (slot.appointments.length > 0) {
       return res.status(409).json({
         mensaje: 'No se puede modificar un slot que ya tiene turnos asociados. Gestioná los turnos primero.',
@@ -269,9 +258,7 @@ export const actualizarSlot = async (req, res) => {
   }
 };
 
-// ════════════════════════════════════════════════════════════════
-// ELIMINAR UN SLOT INDIVIDUAL
-// ════════════════════════════════════════════════════════════════
+
 export const eliminarSlot = async (req, res) => {
   try {
     const { availabilityId } = req.params;
@@ -289,8 +276,7 @@ export const eliminarSlot = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo podés gestionar tu propia agenda' });
     }
 
-    // No se puede borrar un slot que tiene turnos asociados (de cualquier estado),
-    // porque rompería la relación con Appointment.
+    
     if (slot.appointments.length > 0) {
       return res.status(409).json({
         mensaje: 'No se puede eliminar un slot que tiene turnos asociados. Gestioná los turnos primero.',
@@ -310,7 +296,7 @@ export const eliminarSlot = async (req, res) => {
 
 const ESTADOS_PEND = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'];
 
-// Archiva un slot (baja lógica) y manda sus turnos pendientes a la bandeja de reprogramación.
+
 export const archivarSlot = async (req, res) => {
   try {
     const { availabilityId } = req.params;
@@ -345,8 +331,7 @@ export const archivarSlot = async (req, res) => {
   }
 };
 
-// Archiva todos los slots con turnos del mes y manda sus pendientes a la bandeja.
-// (Los slots libres se eliminan con revertirDisponibilidad; esto es para los que tienen turnos.)
+
 export const archivarMes = async (req, res) => {
   try {
     const { id } = req.params;

@@ -33,7 +33,7 @@ const ForgotPassword = () => {
       }
 
       setMensaje(datos.mensaje);
-      setEmail(""); // Limpiamos el input
+      setEmail(""); 
 
     } catch (err) {
       setError(err.message);

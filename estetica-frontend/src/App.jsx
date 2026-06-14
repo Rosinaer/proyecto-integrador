@@ -11,14 +11,13 @@ import ResetPassword from "./pages/ResetPassword";
 import NoAutorizado from "./pages/NoAutorizado";
 
 // Páginas de Administración
-import AdminDashboard from "./pages/admin/Dashboard";
 import UsuariosAdmin from "./pages/admin/UsuariosAdmin";
 import ProfesionalesAdmin from "./pages/admin/ProfesionalesAdmin";
 import ServiciosAdmin from "./pages/admin/ServiciosAdmin";
+import TurnosControl from "./pages/admin/TurnosControl";
 import TurnosAdmin from "./pages/admin/TurnosAdmin";
 import MiPerfil from "./pages/admin/MiPerfil";
 import AperturaAgenda from "./pages/admin/AperturaAgenda";
-import CalendarioSemanal from "./pages/admin/CalendarioSemanal";
 import PacientesAdmin from "./pages/admin/PacientesAdmin";
 import FichaPacienteAdmin from "./pages/admin/FichaPacienteAdmin";
 import CategoriaServiciosAdmin from "./pages/admin/CategoriaServiciosAdmin";
@@ -33,10 +32,14 @@ import ReprogramarAdmin from "./pages/admin/ReprogramarAdmin";
 const Pagina = ({ pagina, children }) => (
   <ProtectedRoute rolesPermitidos={PERMISOS[pagina]}>{children}</ProtectedRoute>
 );
+
+// Inicio:
+// - ADMIN  → Dashboard (lo que antes era Reportes)
+// - PROFESSIONAL / RECEPTIONIST → arrancan directo en Turnos
 const InicioPorRol = () => {
   const { user } = useAuth();
-  if (user?.role === ROLES.ADMIN || user?.role === ROLES.PROFESSIONAL) {
-    return <AdminDashboard />;
+  if (user?.role === ROLES.ADMIN) {
+    return <ReportesAdmin />;
   }
   return <Navigate to="/admin/turnos" replace />;
 };
@@ -62,15 +65,14 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Índice: Dashboard para ADMIN, Turnera para el resto */}
+          {/* Índice: Dashboard (Reportes) para ADMIN; el resto va a Turnos */}
           <Route index element={<InicioPorRol />} />
 
           <Route path="usuarios" element={<Pagina pagina="usuarios"><UsuariosAdmin /></Pagina>} />
           <Route path="profesionales" element={<Pagina pagina="profesionales"><ProfesionalesAdmin /></Pagina>} />
           <Route path="servicios" element={<Pagina pagina="servicios"><ServiciosAdmin /></Pagina>} />
-          <Route path="turnos" element={<Pagina pagina="turnos"><TurnosAdmin /></Pagina>} />
-          <Route path="reportes" element={<Pagina pagina="reportes"><ReportesAdmin /></Pagina>} />
-          <Route path="calendario" element={<Pagina pagina="calendario"><CalendarioSemanal /></Pagina>} />
+          <Route path="turnos" element={<Pagina pagina="turnos"><TurnosControl /></Pagina>} />
+          <Route path="calendario" element={<Pagina pagina="calendario"><TurnosAdmin /></Pagina>} />
           <Route path="agendas" element={<Pagina pagina="agendas"><AperturaAgenda /></Pagina>} />
           <Route path="mi-perfil" element={<Pagina pagina="miPerfil"><MiPerfil /></Pagina>} />
           <Route path="pacientes" element={<Pagina pagina="pacientes"><PacientesAdmin /></Pagina>} />
@@ -82,16 +84,6 @@ function App() {
           <Route path="reprogramar" element={<Pagina pagina="reprogramar"><ReprogramarAdmin /></Pagina>} />
         </Route>
 
-        {/* --- RUTAS DE PACIENTE (Comentadas temporalmente por QA) --- */}
-        {/* <Route
-          path="/paciente"
-          element={
-            <ProtectedRoute rolesPermitidos={["PATIENT"]}>
-              <PacienteDashboard />
-            </ProtectedRoute>
-          }
-        /> 
-        */}
       </Routes>
     </BrowserRouter>
   );

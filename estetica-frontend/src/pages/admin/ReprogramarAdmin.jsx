@@ -57,8 +57,7 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
     </div>
   );
 }
-
-// ── Modal de reprogramación ──
+ 
 function ReprogramarModal({ turno, token, onClose, onDone }) {
   const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const headers = { Authorization: `Bearer ${token}` };
@@ -77,8 +76,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
   const [availabilityId, setAvailabilityId] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
-
-  // Días disponibles del mes
+ 
   useEffect(() => {
     setDiaSel(""); setSlots([]); setSlotSel(null); setAvailabilityId("");
     if (!profId || !servId) return;
@@ -89,8 +87,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
       setDias(data.days || []);
     })();
   }, [verMes.year, verMes.month]);
-
-  // Horarios del día
+ 
   useEffect(() => {
     setSlots([]); setSlotSel(null);
     if (!diaSel) return;
@@ -177,8 +174,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
     </Modal>
   );
 }
-
-// ════════════════════════════════════════════════════════════
+ 
 export default function ReprogramarAdmin() {
   const { token } = useAuth();
   const banner = useBanner();

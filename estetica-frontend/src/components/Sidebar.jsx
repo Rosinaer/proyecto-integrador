@@ -9,21 +9,21 @@ const LINKS = [
   { to: "/admin", label: "Dashboard", end: true, pagina: "dashboard" },
 
   // Operación diaria
-  { to: "/admin/turnos", label: "Turnera", pagina: "turnos" },
+  { to: "/admin/turnos", label: "Turnos", pagina: "turnos" },
+  { to: "/admin/calendario", label: "Calendario", pagina: "calendario" },
   { to: "/admin/reserva-turno", label: "Reservar Turno", pagina: "reservaTurno" },
   { to: "/admin/reprogramar", label: "Reprogramar", badge: true, pagina: "reprogramar" },
-  { to: "/admin/agendas", label: "Agendas", pagina: "agendas" },
   { to: "/admin/pacientes", label: "Pacientes", pagina: "pacientes" },
 
-  // Catálogo (servicios + categorías + servicios por profesional se unificarán)
+  // Catálogo
   { to: "/admin/profesionales", label: "Profesionales", pagina: "profesionales" },
   { to: "/admin/servicios", label: "Servicios", pagina: "servicios" },
   { to: "/admin/categorias", label: "Categorías de Servicios", pagina: "categorias" },
   { to: "/admin/servicios-profesional", label: "Servicios por Profesional", pagina: "serviciosProfesional" },
+  { to: "/admin/agendas", label: "Agendas por Profesional", pagina: "agendas" },
 
   // Administración
   { to: "/admin/usuarios", label: "Usuarios", pagina: "usuarios" },
-  { to: "/admin/reportes", label: "Reportes", pagina: "reportes" },
 
   // Cuenta
   { to: "/admin/mi-perfil", label: "Mi Perfil", pagina: "miPerfil" },
@@ -39,8 +39,6 @@ function Sidebar({ open = true, onClose, onNavigate }) {
 
   useEffect(() => {
     if (!token) return;
-    // El badge de "Reprogramar" solo aplica a roles que ven esa pantalla
-    // (admin/recepción). Para un profesional ni siquiera disparamos el fetch.
     if (!puede(user?.role, "reprogramar")) {
       setPendientes(0);
       return;

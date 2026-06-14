@@ -6,23 +6,25 @@
   "scripts": {
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --forceExit",
     "dev": "nodemon --env-file=.env app.js",
-    "start": "node --env-file=.env app.js"
+    "start": "npx prisma migrate deploy && node app.js",
+    "render-start": "wait-on postgresql://usuario:password@host:puerto/db && npx prisma migrate deploy && node app.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "5.22.0",
     "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "googleapis": "^173.0.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
-    "prisma": "^5.22.0",
+    "prisma": "5.22.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1"
   },

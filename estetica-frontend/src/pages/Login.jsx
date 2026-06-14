@@ -25,29 +25,24 @@ const Login = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-
-      // Si el status es 429 (Rate Limit), forzamos el mensaje de bloqueo directamente
+ 
       if (respuesta.status === 429) {
         throw new Error("Has superado el límite de 5 intentos fallidos. Por seguridad, esperá 1 hora antes de volver a intentar.");
       }
-
-      // Intentamos leer la respuesta como JSON de forma segura
+ 
       let datos;
       try {
         datos = await respuesta.json();
       } catch (parseError) {
-        datos = {}; // Si el servidor no devolvió JSON válido, evitamos que explote
+        datos = {};  
       }
 
       if (!respuesta.ok) {
         throw new Error(datos.message || datos.mensaje || "Error al iniciar sesión. Revisá tus credenciales.");
       }
-
-      // Guardamos la info en el estado global
+ 
       login({ token: datos.token, user: datos.user });
-
-      // Redirigimos según el rol (homePorRol vive en config/permisos.js,
-      // así el destino de cada rol queda en un solo lugar)
+ 
       navigate(homePorRol(datos.user.role));
 
     } catch (err) {
@@ -58,8 +53,7 @@ const Login = () => {
   return (
     <div className="container" style={{ maxWidth: '400px', marginTop: '10vh' }}>
       <h2>Ingreso al Sistema</h2>
-      
-      {/* Mensaje de error centralizado */}
+       
       {error && <p style={{ color: '#d32f2f', textAlign: 'center', fontWeight: 'bold' }}>{error}</p>}
 
       <form onSubmit={manejarIngreso} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>

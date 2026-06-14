@@ -1,27 +1,22 @@
 import prisma from '../config/prisma.js';
 import { verificarProfesional, professionalIdDelUsuario, SIN_COINCIDENCIAS } from '../middleware/checkProfessional.js';
+import { sincronizarTurnoAsync } from '../services/appointmentSync.service.js';
+import { instanteDesdeParedLocal, minutoDelDiaEnZona } from '../utils/tiempo.js';
 
-const CLINIC_TZ = 'America/Argentina/Buenos_Aires';
+
 const toMinutes = (d) => d.getUTCHours() * 60 + d.getUTCMinutes();
 const fmtDate = (d) => new Date(d).toISOString().slice(0, 10);
 const ESTADOS_OCUPAN = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'];
 
-const ahoraPared = () => {
-  const partes = new Intl.DateTimeFormat('en-CA', {
-    timeZone: CLINIC_TZ, hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  }).formatToParts(new Date()).reduce((o, p) => (o[p.type] = p.value, o), {});
-  return new Date(`${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}:${partes.second}Z`);
-};
+const ahoraInstante = () => new Date();
 
 function calcularSlots(availability, turnosOcupados, duracionMin, dateStr, ahora) {
   const availabilityStart = toMinutes(availability.startTime);
   const availabilityEnd = toMinutes(availability.endTime);
  
   const bloques = turnosOcupados.map((t) => ({
-    inicio: toMinutes(t.startsAt),
-    fin: toMinutes(t.endsAt),
+    inicio: minutoDelDiaEnZona(t.startsAt),
+    fin: minutoDelDiaEnZona(t.endsAt),
   }));
 
   
@@ -35,7 +30,7 @@ function calcularSlots(availability, turnosOcupados, duracionMin, dateStr, ahora
     } else {
       const hh = Math.floor(cursor / 60).toString().padStart(2, '0');
       const mm = (cursor % 60).toString().padStart(2, '0');
-      const slotDate = new Date(`${dateStr}T${hh}:${mm}:00Z`);
+      const slotDate = instanteDesdeParedLocal(dateStr, `${hh}:${mm}`);
       if (slotDate > ahora) {
         slots.push({
           startsAt: slotDate,
@@ -82,7 +77,7 @@ async function primerTurnoDisponible(professionalId, duracionMin, fromStr, windo
   const porAvail = {};
   for (const a of appts) (porAvail[a.availabilityId] ||= []).push(a);
  
-  const ahora = ahoraPared();
+  const ahora = ahoraInstante();
   for (const av of avs) {
     const slots = calcularSlots(av, porAvail[av.id] || [], duracionMin, fmtDate(av.date), ahora);
     if (slots.length) return slots[0];
@@ -90,10 +85,7 @@ async function primerTurnoDisponible(professionalId, duracionMin, fromStr, windo
   return null;
 }
 
-// ════════════════════════════════════════════════════════════════
-//  MOTOR DE CÁLCULO DE HORARIOS DISPONIBLES (uno o varios servicios)
-// ════════════════════════════════════════════════════════════════
- 
+
 export const obtenerHorariosDisponibles = async (req, res) => {
   try {
     const { professionalId, date } = req.query;
@@ -113,9 +105,7 @@ export const obtenerHorariosDisponibles = async (req, res) => {
     }
     const { duracionTotal, precioTotal } = resueltos;
  
-    // Asumimos una ventana de disponibilidad por día (la que genera la plantilla).
-    // Si más adelante permiten varios tramos por día, esto debería iterar todos.
-    const availability = await prisma.availability.findFirst({
+     const availability = await prisma.availability.findFirst({
       where: { professionalId, date: new Date(date), active: true },
     });
     if (!availability) {
@@ -129,7 +119,7 @@ export const obtenerHorariosDisponibles = async (req, res) => {
       orderBy: { startsAt: 'asc' },
     });
  
-    const slots = calcularSlots(availability, turnosOcupados, duracionTotal, date, ahoraPared());
+    const slots = calcularSlots(availability, turnosOcupados, duracionTotal, date, ahoraInstante());
  
     res.json({
       date,
@@ -146,8 +136,7 @@ export const obtenerHorariosDisponibles = async (req, res) => {
   }
 };
  
-// Días del mes que tienen al menos un turno posible para esa duración total.
-// Alimenta el calendario: pinta verde solo donde entra el bloque completo.
+
 export const obtenerDiasDisponibles = async (req, res) => {
   try {
     const { professionalId, year, month } = req.query;
@@ -183,7 +172,7 @@ export const obtenerDiasDisponibles = async (req, res) => {
     const porAvail = {};
     for (const a of appts) (porAvail[a.availabilityId] ||= []).push(a);
  
-    const ahora = ahoraPared();
+    const ahora = ahoraInstante();
     const dias = new Set();
     for (const av of avs) {
       const fecha = fmtDate(av.date);
@@ -198,8 +187,7 @@ export const obtenerDiasDisponibles = async (req, res) => {
   }
 };
  
-// Para la pantalla "por servicio": qué profesionales ofrecen el servicio,
-// con su precio, duración y primer turno disponible. Ordenado "antes posible".
+
 export const obtenerOpcionesPorServicio = async (req, res) => {
   try {
     const { serviceId } = req.query;
@@ -236,7 +224,7 @@ export const obtenerOpcionesPorServicio = async (req, res) => {
         })
     );
  
-    // Antes posible: los que tienen turno primero, ordenados por fecha; los sin turno al final.
+    
     opciones.sort((a, b) => {
       if (!a.nextSlot && !b.nextSlot) return 0;
       if (!a.nextSlot) return 1;
@@ -259,10 +247,7 @@ export const obtenerOpcionesPorServicio = async (req, res) => {
   }
 };
  
-// ════════════════════════════════════════════════════════════════
-//  CRUD DE TURNOS
-// ════════════════════════════════════════════════════════════════
- 
+
 export const obtenerTurnos = async (req, res) => {
   try {
     const { professionalId, patientId, status, desde, hasta, needsReschedule } = req.query;
@@ -270,9 +255,6 @@ export const obtenerTurnos = async (req, res) => {
     const where = {};
     if (professionalId) where.professionalService = { professionalId };
 
-    // Scope de seguridad: un PROFESSIONAL solo ve SUS turnos, sin importar el
-    // professionalId que venga en el query. Si no tiene ficha vinculada, no ve
-    // nada (filtro imposible) en vez de ver todo.
     if (req.user?.role === 'PROFESSIONAL') {
       const miId = await professionalIdDelUsuario(req.user);
       where.professionalService = { professionalId: miId ?? SIN_COINCIDENCIAS };
@@ -322,6 +304,7 @@ export const obtenerTurnoPorId = async (req, res) => {
         availability: true,
         payments: true,
         audits: true,
+        reminders: true,
       },
     });
  
@@ -334,17 +317,11 @@ export const obtenerTurnoPorId = async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor al obtener el turno' });
   }
 };
- 
-// Crea un turno. Soporta dos formas:
-//   • { professionalServiceId, ... }        → un solo servicio (comportamiento de siempre)
-//   • { professionalServiceIds: [a,b,c], ...} → varios servicios del MISMO profesional,
-//                                               encadenados back-to-back en el mismo bloque,
-//                                               unidos por un bookingGroupId.
+
 export const crearTurno = async (req, res) => {
   try {
     const { professionalServiceId, professionalServiceIds, availabilityId, patientId, startsAt, notes } = req.body;
  
-    // Normalizamos a una lista de ids, preservando el orden elegido.
     const idsServicio = Array.isArray(professionalServiceIds) && professionalServiceIds.length
       ? professionalServiceIds
       : professionalServiceId
@@ -357,7 +334,7 @@ export const crearTurno = async (req, res) => {
       });
     }
  
-    // Traemos los ProfessionalService en el orden pedido.
+
     const psRows = await prisma.professionalService.findMany({
       where: { id: { in: idsServicio } },
     });
@@ -375,7 +352,7 @@ export const crearTurno = async (req, res) => {
       });
     }
 
-    // Scope: un PROFESSIONAL solo puede agendar en SU propia agenda.
+    
     if (!await verificarProfesional(serviciosOrdenados[0].professionalId, req.user)) {
       return res.status(403).json({ mensaje: 'Solo podés agendar en tu propia agenda' });
     }
@@ -390,7 +367,6 @@ export const crearTurno = async (req, res) => {
       return res.status(404).json({ mensaje: 'Paciente no encontrado' });
     }
  
-    // Calculamos el encadenado: cada servicio arranca donde termina el anterior.
     const start = new Date(startsAt);
     let cursor = new Date(start);
     const tramos = serviciosOrdenados.map((ps) => {
@@ -399,9 +375,8 @@ export const crearTurno = async (req, res) => {
       cursor = tramoFin;
       return { ps, startsAt: tramoInicio, endsAt: tramoFin };
     });
-    const bloqueFin = cursor; // fin del último tramo
- 
-    // Conflicto: chequeamos el bloque COMPLETO contra los turnos existentes.
+    const bloqueFin = cursor; 
+    
     const conflicto = await prisma.appointment.findFirst({
       where: {
         availabilityId,
@@ -428,7 +403,7 @@ export const crearTurno = async (req, res) => {
             startsAt: s,
             endsAt: e,
             priceSnapshot: ps.price,
-            notes: i === 0 ? notes || null : null, // la nota la dejamos en el primer tramo
+            notes: i === 0 ? notes || null : null, 
           },
           include: {
             professionalService: {
@@ -453,7 +428,8 @@ export const crearTurno = async (req, res) => {
       return out;
     });
  
-    // Si fue uno solo, devolvemos el objeto (compatibilidad). Si fue grupo, la lista.
+    creados.forEach((t) => sincronizarTurnoAsync(t.id));
+
     res.status(201).json(esGrupo ? { appointments: creados } : creados[0]);
   } catch (error) {
     console.error('Error en crearTurno:', error);
@@ -461,9 +437,7 @@ export const crearTurno = async (req, res) => {
   }
 };
 
-// ════════════════════════════════════════════════════════════════
-//  SOBRETURNO — turno espontáneo que ignora agenda y solapamiento
-// ════════════════════════════════════════════════════════════════
+
 export const crearSobreturno = async (req, res) => {
   try {
     const { professionalServiceId, professionalServiceIds, patientId, startsAt, notes } = req.body;
@@ -480,7 +454,7 @@ export const crearSobreturno = async (req, res) => {
       });
     }
 
-    // Traemos los ProfessionalService en el orden pedido.
+    
     const psRows = await prisma.professionalService.findMany({
       where: { id: { in: idsServicio } },
     });
@@ -490,7 +464,7 @@ export const crearSobreturno = async (req, res) => {
     const psPorId = Object.fromEntries(psRows.map((r) => [r.id, r]));
     const serviciosOrdenados = idsServicio.map((id) => psPorId[id]);
 
-    // Todos los servicios deben ser del mismo profesional.
+    
     const profIds = new Set(serviciosOrdenados.map((s) => s.professionalId));
     if (profIds.size > 1) {
       return res.status(400).json({
@@ -498,7 +472,7 @@ export const crearSobreturno = async (req, res) => {
       });
     }
 
-    // Scope: un PROFESSIONAL solo puede hacer sobreturnos en SU propia agenda.
+    
     if (!await verificarProfesional(serviciosOrdenados[0].professionalId, req.user)) {
       return res.status(403).json({ mensaje: 'Solo podés agendar en tu propia agenda' });
     }
@@ -508,8 +482,7 @@ export const crearSobreturno = async (req, res) => {
       return res.status(404).json({ mensaje: 'Paciente no encontrado' });
     }
 
-    // Encadenado: cada servicio arranca donde termina el anterior.
-    // (NO chequeamos solapamiento: es la esencia del sobreturno.)
+   
     const start = new Date(startsAt);
     let cursor = new Date(start);
     const tramos = serviciosOrdenados.map((ps) => {
@@ -560,6 +533,8 @@ export const crearSobreturno = async (req, res) => {
       return out;
     });
 
+    creados.forEach((t) => sincronizarTurnoAsync(t.id));
+
     res.status(201).json(esGrupo ? { appointments: creados } : creados[0]);
   } catch (error) {
     console.error('Error en crearSobreturno:', error);
@@ -584,13 +559,12 @@ export const cambiarEstadoTurno = async (req, res) => {
       return res.status(404).json({ mensaje: 'Turno no encontrado' });
     }
 
-    // Un PROFESSIONAL solo puede cambiar el estado de sus propios turnos.
+
     if (!await verificarProfesional(turno.professionalService.professionalId, req.user)) {
       return res.status(403).json({ mensaje: 'Solo podés gestionar turnos propios' });
     }
 
-    // Se permite mover el turno a cualquier estado conocido (incluso revertir
-    // un cambio hecho por error). Solo se valida que el estado sea válido.
+
     const ESTADOS_VALIDOS = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'];
     if (!ESTADOS_VALIDOS.includes(status)) {
       return res.status(400).json({
@@ -616,6 +590,8 @@ export const cambiarEstadoTurno = async (req, res) => {
       return turnoActualizado;
     });
  
+    sincronizarTurnoAsync(id);
+
     res.json(resultado);
   } catch (error) {
     console.error('Error en cambiarEstadoTurno:', error);
@@ -623,7 +599,7 @@ export const cambiarEstadoTurno = async (req, res) => {
   }
 };
 
-// Reprograma un turno a un nuevo slot y lo saca de la bandeja (limpia el flag).
+
 export const reprogramarTurno = async (req, res) => {
   try {
     const { id } = req.params;
@@ -639,7 +615,7 @@ export const reprogramarTurno = async (req, res) => {
     });
     if (!turno) return res.status(404).json({ mensaje: 'Turno no encontrado' });
 
-    // Un PROFESSIONAL solo puede reprogramar sus propios turnos.
+
     if (!await verificarProfesional(turno.professionalService.professionalId, req.user)) {
       return res.status(403).json({ mensaje: 'Solo podés reprogramar turnos propios' });
     }
@@ -655,7 +631,7 @@ export const reprogramarTurno = async (req, res) => {
     const start = new Date(startsAt);
     const end = new Date(start.getTime() + turno.professionalService.durationMinutes * 60000);
 
-    // Conflicto en el nuevo slot, excluyendo este mismo turno.
+
     const conflicto = await prisma.appointment.findFirst({
       where: {
         id: { not: id },
@@ -688,6 +664,8 @@ export const reprogramarTurno = async (req, res) => {
       });
       return t;
     });
+
+    sincronizarTurnoAsync(id);
 
     res.json(actualizado);
   } catch (error) {

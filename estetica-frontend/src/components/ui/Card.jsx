@@ -1,22 +1,22 @@
-import React from 'react';
+import { colors, shadow, radius } from "../../theme/colors";
 
-export const Card = ({ children, style, className }) => {
-  return (
-    <div style={{ ...styles.card, ...style }} className={className}>
-      {children}
-    </div>
-  );
-};
+export const Card = ({ children, style, className }) => (
+  <div
+    className={className}
+    style={{
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      boxShadow: shadow.card,
+      border: `1px solid ${colors.borderSoft}`,
+      padding: 24,
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      ...style,
+    }}
+  >
+    {children}
+  </div>
+);
 
-const styles = {
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: '10px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-    border: '1px solid #f8fafc', 
-    padding: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    width: '100%',
-  }
-};
+export default Card;

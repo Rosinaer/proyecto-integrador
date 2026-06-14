@@ -62,8 +62,7 @@ export const crearPaciente = async (req, res) => {
       });
     }
 
-    // La identidad es el documento (tipo + número). Buscamos si ya existe la
-    // persona para no duplicarla.
+
     const personaExistente = await prisma.people.findFirst({
       where: { documentType, document },
       include: { patient: true, professional: true, user: true },
@@ -76,8 +75,7 @@ export const crearPaciente = async (req, res) => {
         });
       }
 
-      // La persona existe (ej. ya es profesional/usuario) pero no es paciente.
-      // No la asociamos en silencio: pedimos confirmación explícita.
+
       if (!confirmLink) {
         return res.status(409).json({
           needsConfirmation: true,
@@ -94,8 +92,6 @@ export const crearPaciente = async (req, res) => {
         });
       }
 
-      // Confirmado: asociamos el paciente a la persona existente (y completamos
-      // cuilCuit en people si se cargó).
       const paciente = await prisma.$transaction(async (tx) => {
         if (cuilCuit !== undefined && cuilCuit !== "") {
           await tx.people.update({ where: { id: personaExistente.id }, data: { cuilCuit } });
@@ -112,7 +108,7 @@ export const crearPaciente = async (req, res) => {
       return res.status(201).json(paciente);
     }
 
-    // Persona nueva: creamos people (con cuilCuit) + patient.
+    
     const resultado = await prisma.$transaction(async (tx) => {
       const persona = await tx.people.create({
         data: { name, documentType, document, email, phone, cuilCuit: cuilCuit ?? "" },

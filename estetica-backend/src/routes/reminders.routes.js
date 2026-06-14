@@ -1,33 +1,10 @@
 import { Router } from 'express';
 import verificarToken from '../middleware/verificarToken.js';
 import autorizarRoles from '../middleware/autorizarRoles.js';
-import { procesarRecordatorios } from '../utils/reminders.js';
+import { procesarRecordatorios, enviarRecordatorioTurno } from '../utils/reminders.js';
 
 const router = Router();
 
-// POST /api/reminders/enviar → Disparar recordatorios manualmente
-/**
- * @swagger
- * /api/reminders/enviar:
- *   post:
- *     summary: Disparar recordatorios manualmente (solo ADMIN)
- *     tags:
- *       - Recordatorios
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Recordatorios procesados correctamente
- *       401:
- *         description: Token inválido o ausente
- *       403:
- *         description: Acceso denegado (rol sin permiso)
- *       500:
- *         description: Error al procesar recordatorios
- */
-// CORRECCIÓN: este endpoint dispara un envío masivo de mails. Antes solo tenía
-// verificarToken, así que cualquier usuario autenticado podía dispararlo.
-// Ahora queda restringido a ADMIN.
 router.post(
   '/enviar',
   verificarToken,
@@ -36,6 +13,21 @@ router.post(
     try {
       await procesarRecordatorios();
       res.json({ mensaje: 'Recordatorios procesados correctamente' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+router.post(
+  '/turno/:id',
+  verificarToken,
+  autorizarRoles(['ADMIN', 'RECEPTIONIST', 'PROFESSIONAL']),
+  async (req, res) => {
+    try {
+      const r = await enviarRecordatorioTurno(req.params.id);
+      if (!r.ok) return res.status(404).json({ mensaje: r.error });
+      res.json({ mensaje: 'Recordatorio enviado', resultados: r.resultados });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
