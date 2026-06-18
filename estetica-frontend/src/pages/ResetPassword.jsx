@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
+import client, { mensajeDeError } from "../api/client";
 
 const ResetPassword = () => {
   const [nuevaPassword, setNuevaPassword] = useState("");
@@ -35,28 +36,15 @@ const ResetPassword = () => {
     setCargando(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-      
-      const respuesta = await fetch(`${apiUrl}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, nuevaPassword }),
-      });
-
-      const datos = await respuesta.json();
-
-      if (!respuesta.ok) {
-        throw new Error(datos.mensaje || datos.error || "Ocurrió un error al restablecer la contraseña.");
-      }
+      await client.post("/auth/reset-password", { token, nuevaPassword });
 
       setMensaje("¡Contraseña actualizada con éxito!");
-       
+
       setTimeout(() => {
         navigate("/login");
       }, 3000);
-
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Ocurrió un error al restablecer la contraseña.");
     } finally {
       setCargando(false);
     }
@@ -65,28 +53,28 @@ const ResetPassword = () => {
   return (
     <div className="container" style={{ maxWidth: '400px', marginTop: '10vh' }}>
       <h2>Crear Nueva Contraseña</h2>
-      
+
       {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
       {mensaje && <p style={{ color: 'green', textAlign: 'center', fontWeight: 'bold' }}>{mensaje}</p>}
 
       {!mensaje && (
         <form onSubmit={manejarEnvio} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <Input 
-            type="password" 
-            placeholder="Nueva contraseña (mínimo 6 caracteres)" 
+          <Input
+            type="password"
+            placeholder="Nueva contraseña (mínimo 6 caracteres)"
             value={nuevaPassword}
             onChange={(e) => setNuevaPassword(e.target.value)}
             required
           />
 
-          <Input 
-            type="password" 
-            placeholder="Repetir nueva contraseña" 
+          <Input
+            type="password"
+            placeholder="Repetir nueva contraseña"
             value={confirmarPassword}
             onChange={(e) => setConfirmarPassword(e.target.value)}
             required
           />
-          
+
           <Button type="submit" disabled={cargando}>
             {cargando ? "Guardando..." : "Guardar contraseña"}
           </Button>

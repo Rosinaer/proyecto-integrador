@@ -6,6 +6,7 @@ import { useBanner } from "./ui/Banner";
 import { crearPaciente, actualizarPaciente } from "../api/patients.api";
 import { TEL_PAIS, TEL_AREA_DEFAULT } from "../config/clinica";
 import { armarTelefono, validarTelefono, partirTelefono } from "../utils/telefono";
+import {colors, status} from "../theme/colors"; 
 
 const VACIO = {
   name: "", documentType: "DNI", document: "", email: "",
@@ -25,7 +26,7 @@ const DOC_LABEL = { DNI: "DNI", PASSPORT: "Pasaporte", OTHER: "Otro" };
 const Campo = ({ label, requerido, children }) => (
   <div style={{ display: "flex", flexDirection: "column", gap: 5, width: "100%" }}>
     <label style={{ color: "#6a1b9a", fontWeight: "bold", fontSize: 14 }}>
-      {label} {requerido && <span style={{ color: "#d32f2f" }}>*</span>}
+      {label} {requerido && <span style={{ color: status.error.strong }}>*</span>}
     </label>
     {children}
   </div>
@@ -34,7 +35,7 @@ const Campo = ({ label, requerido, children }) => (
 const inputStyle = { width: "100%", boxSizing: "border-box" };
 
 
-export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, initialName = "", onSaved }) => {
+export const PacienteFormModal = ({ isOpen, onClose, paciente = null, initialName = "", onSaved }) => {
   const modoEdicion = !!paciente;
   const banner = useBanner();
   const [form, setForm] = useState(VACIO);
@@ -128,7 +129,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
       {error && <p style={{ color: "red", fontSize: "14px", textAlign: "center" }}>{error}</p>}
 
       {confirmData && (
-        <div style={{ border: "1px solid #fde047", background: "#fef9c3", color: "#854d0e", borderRadius: 8, padding: "12px 14px", marginBottom: 12 }}>
+        <div style={{ border: "1px solid #fde047", background: status.warning.soft, color: status.warning.fg, borderRadius: 8, padding: "12px 14px", marginBottom: 12 }}>
           <div style={{ fontSize: 14, marginBottom: 8 }}>{confirmData.mensaje}</div>
           {confirmData.person && (
             <div style={{ fontSize: 12, marginBottom: 10 }}>
@@ -138,7 +139,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
             </div>
           )}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setConfirmData(null)}>
+            <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setConfirmData(null)}>
               No, revisar
             </Button>
             <Button type="button" disabled={guardando} onClick={() => doSave(true)}>
@@ -148,8 +149,8 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
         </div>
       )}
 
-      <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 4px" }}>
-        Los campos marcados con <span style={{ color: "#d32f2f" }}>*</span> son obligatorios.
+      <p style={{ fontSize: 12, color: colors.textSubtle, margin: "0 0 4px" }}>
+        Los campos marcados con <span style={{ color: status.error.strong }}>*</span> son obligatorios.
       </p>
 
       <form onSubmit={guardar} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "10px" }}>
@@ -171,7 +172,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
 
         <Campo label="Teléfono (WhatsApp)" requerido>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ color: "#64748b", fontSize: 14 }}>+{TEL_PAIS}</span>
+            <span style={{ color: colors.textSubtle, fontSize: 14 }}>+{TEL_PAIS}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -192,7 +193,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
               required
             />
           </div>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>
+          <span style={{ fontSize: 11, color: colors.textMuted }}>
             Ej: área 11 · número 12345678. Se guarda como{" "}
             {telefonoArmado() ? telefonoArmado() : "—"} para WhatsApp.
           </span>
@@ -207,7 +208,7 @@ export const PacienteFormModal = ({ isOpen, onClose, token, paciente = null, ini
         </Campo>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "10px", justifyContent: "flex-end" }}>
-          <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={onClose}>
+          <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={onClose}>
             Cancelar
           </Button>
           <Button type="submit" disabled={guardando}>

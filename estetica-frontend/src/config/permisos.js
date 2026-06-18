@@ -13,6 +13,7 @@ export const PERMISOS = {
   servicios:            [ROLES.ADMIN],
   categorias:           [ROLES.ADMIN],
   serviciosProfesional: [ROLES.ADMIN],
+  cobros:              [ROLES.ADMIN],
 
   profesionales:        [ROLES.ADMIN, ROLES.RECEPTIONIST],
   fichaProfesional:     [ROLES.ADMIN, ROLES.RECEPTIONIST],

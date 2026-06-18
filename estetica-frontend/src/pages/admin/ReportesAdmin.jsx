@@ -1,23 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
+import { fechaClinicaStr } from "../../config/clinica";
+import { ymdDeInstante } from "../../utils/fecha";
+import client, { mensajeDeError } from "../../api/client";
+import { ESTADOS } from "../../constants/estados";
+import { moneda } from "../../utils/moneda";
+import {colors, status} from "../../theme/colors"; 
 
 
-const ESTADOS = {
-  PENDING:     { label: "Pendiente",  bg: "#fef9c3", fg: "#854d0e" },
-  CONFIRMED:   { label: "Confirmado", bg: "#dcfce7", fg: "#166534" },
-  IN_PROGRESS: { label: "En curso",   bg: "#dbeafe", fg: "#1e40af" },
-  COMPLETED:   { label: "Completado", bg: "#d1fae5", fg: "#065f46" },
-  CANCELLED:   { label: "Cancelado",  bg: "#fee2e2", fg: "#991b1b" },
-  NO_SHOW:     { label: "No asistió", bg: "#f1f5f9", fg: "#64748b" },
-};
 const ORDEN_ESTADOS = ["COMPLETED", "CONFIRMED", "PENDING", "IN_PROGRESS", "NO_SHOW", "CANCELLED"];
 
 const pad = (n) => String(n).padStart(2, "0");
 const localDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-const moneda = (v) =>
-  Number(v || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 
 const nomServ = (t) => t?.professionalService?.service?.name ?? "Sin servicio";
 const pagadoDe = (t) =>
@@ -26,20 +21,20 @@ const pagadoDe = (t) =>
 
 const S = {
   card: { backgroundColor: "#fff", borderRadius: "10px", padding: "20px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" },
-  label: { display: "block", fontSize: "13px", fontWeight: "600", color: "#6b21a8", marginBottom: "5px" },
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid colors.border" },
+  label: { display: "block", fontSize: "13px", fontWeight: "600", color: colors.brand, marginBottom: "5px" },
   select: { width: "100%", padding: "9px 12px", border: "1px solid #ccc", borderRadius: "6px",
             fontSize: "14px", backgroundColor: "#fff", cursor: "pointer", boxSizing: "border-box" },
   input: { width: "100%", padding: "9px 12px", border: "1px solid #ccc", borderRadius: "6px",
            fontSize: "14px", boxSizing: "border-box" },
-  sectionTitle: { margin: "0 0 14px 0", color: "#6b21a8", fontSize: "1.15rem", fontWeight: "700" },
+  sectionTitle: { margin: "0 0 14px 0", color: colors.brand, fontSize: "1.15rem", fontWeight: "700" },
   kpi: { backgroundColor: "#fff", borderRadius: "12px", padding: "18px 20px",
-         boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", minHeight: "104px",
+         boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid colors.border", minHeight: "104px",
          display: "flex", flexDirection: "column", justifyContent: "space-between", minWidth: 0 },
-  kpiLabel: { color: "#64748b", fontWeight: "600", fontSize: "0.9rem" },
-  kpiNumber: { color: "#6b21a8", fontSize: "1.7rem", fontWeight: "800", lineHeight: "1.1", marginTop: "8px", overflowWrap: "anywhere" },
-  alertError: { backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "8px",
-                padding: "10px 16px", fontSize: "13px", color: "#991b1b", marginBottom: "14px" },
+  kpiLabel: { color: colors.textSubtle, fontWeight: "600", fontSize: "0.9rem" },
+  kpiNumber: { color: colors.brand, fontSize: "1.7rem", fontWeight: "800", lineHeight: "1.1", marginTop: "8px", overflowWrap: "anywhere" },
+  alertError: { backgroundColor: status.error.bg, border: `1px solid ${status.error.border}`, borderRadius: "8px",
+                padding: "10px 16px", fontSize: "13px", color: status.error.fg, marginBottom: "14px" },
 };
 
 const Kpi = ({ label, value, color, icon }) => (
@@ -53,7 +48,6 @@ const Kpi = ({ label, value, color, icon }) => (
 
 const Dashboard = () => {
   const { user, token } = useAuth();
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const hoy = new Date();
   const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
@@ -66,44 +60,36 @@ const Dashboard = () => {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
 
-  const headers = useCallback(() => ({ Authorization: `Bearer ${token}` }), [token]);
-
   useEffect(() => {
     if (!token) return;
-    fetch(`${API}/professionals`, { headers: headers() })
-      .then((r) => r.json())
-      .then((d) => setProfesionales(Array.isArray(d) ? d : []))
+    client.get("/professionals")
+      .then(({ data }) => setProfesionales(Array.isArray(data) ? data : []))
       .catch(() => setProfesionales([]));
   }, [token]);
-const cargar = useCallback(async () => {
+
+  const cargar = useCallback(async () => {
     if (!token || !desde || !hasta) return;
     setCargando(true);
     setError("");
-    const [yd, md, dd] = desde.split("-").map(Number);
-    const [yh, mh, dh] = hasta.split("-").map(Number);
-    const q = new URLSearchParams({
-      desde: new Date(yd, md - 1, dd, 0, 0, 0, 0).toISOString(),
-      hasta: new Date(yh, mh - 1, dh, 23, 59, 59, 999).toISOString(),
-    });
-    if (profSel) q.set("professionalId", profSel);
+    // Fechas planas (YYYY-MM-DD): el backend las interpreta en hora de la clínica.
+    const params = { desde, hasta };
+    if (profSel) params.professionalId = profSel;
     try {
-      const res = await fetch(`${API}/appointments?${q}`, { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al cargar dashboard");
+      const { data } = await client.get("/appointments", { params });
       setTurnos(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Error al cargar dashboard");
       setTurnos([]);
     } finally {
       setCargando(false);
     }
-  }, [token, API, headers, desde, hasta, profSel]);
+  }, [token, desde, hasta, profSel]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
   const r = useMemo(() => {
-    const hoyStr = localDateStr(new Date());
-    const turnosHoy = turnos.filter(t => t.startsAt?.startsWith(hoyStr)).length;
+    const hoyStr = fechaClinicaStr();
+    const turnosHoy = turnos.filter((t) => ymdDeInstante(t.startsAt) === hoyStr).length;
     const porEstado = {};
     for (const t of turnos) porEstado[t.status] = (porEstado[t.status] || 0) + 1;
     const total = turnos.length;
@@ -115,7 +101,7 @@ const cargar = useCallback(async () => {
     const cancelacion = total > 0 ? Math.round((100 * cancelados) / total) : null;
     const ingresos = turnos.reduce((acc, t) => acc + pagadoDe(t), 0);
     const ticket = realizados > 0 ? ingresos / realizados : 0;
- 
+
     const ranking = {};
     for (const t of turnos) {
       if (t.status === "CANCELLED") continue;
@@ -140,7 +126,7 @@ const cargar = useCallback(async () => {
       />
 
       {error && <div style={S.alertError}>{error}</div>}
- 
+
       <div style={{ ...S.card, marginBottom: "20px" }}>
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "2", minWidth: "200px" }}>
@@ -166,9 +152,9 @@ const cargar = useCallback(async () => {
       </div>
 
       {cargando ? (
-        <p style={{ color: "#94a3b8", textAlign: "center", padding: "40px 0" }}>Calculando dashboard...</p>
+        <p style={{ color: colors.textMuted, textAlign: "center", padding: "40px 0" }}>Calculando dashboard...</p>
       ) : (
-        <> 
+        <>
           <style>{`
             .kpi-grid { display: grid; gap: 16px; margin-bottom: 24px;
                         grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -177,7 +163,7 @@ const cargar = useCallback(async () => {
           `}</style>
           <div className="kpi-grid">
             <Kpi label="Turnos Hoy" value={r.turnosHoy} icon="📅" />
-            <Kpi label="Ingresos" value={moneda(r.ingresos)} color="#16a34a" icon="💰" />
+            <Kpi label="Ingresos" value={moneda(r.ingresos)} color={status.success.strong} icon="💰" />
             <Kpi label="Turnos realizados" value={r.realizados} icon="✅" />
             <Kpi label="Tasa de asistencia" value={r.asistencia === null ? "—" : `${r.asistencia}%`} icon="📈" />
             <Kpi label="No-shows" value={r.noShows} color="#b91c1c" icon="🚫" />
@@ -186,35 +172,35 @@ const cargar = useCallback(async () => {
             <Kpi label="Total de turnos" value={r.total} icon="📋" />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}> 
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}>
             <div style={S.card}>
               <h3 style={S.sectionTitle}>Servicios más solicitados</h3>
               {r.rankingArr.length === 0 ? (
-                <p style={{ color: "#94a3b8" }}>Sin datos en el período.</p>
+                <p style={{ color: colors.textMuted }}>Sin datos en el período.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   {r.rankingArr.map((s, i) => (
                     <div key={s.nombre}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "3px" }}>
-                        <span style={{ color: "#475569" }}>
-                          <strong style={{ color: "#6b21a8" }}>{i + 1}.</strong> {s.nombre}
+                        <span style={{ color: colors.textSecondary }}>
+                          <strong style={{ color: colors.brand }}>{i + 1}.</strong> {s.nombre}
                         </span>
-                        <strong style={{ color: "#6b21a8" }}>{s.cantidad}</strong>
+                        <strong style={{ color: colors.brand }}>{s.cantidad}</strong>
                       </div>
-                      <div style={{ height: "8px", backgroundColor: "#f1f5f9", borderRadius: "6px", overflow: "hidden" }}>
+                      <div style={{ height: "8px", backgroundColor: colors.borderSoft, borderRadius: "6px", overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${r.maxRank ? (100 * s.cantidad) / r.maxRank : 0}%`,
-                                      backgroundColor: "#8b5cf6", borderRadius: "6px" }} />
+                                      backgroundColor: colors.brand, borderRadius: "6px" }} />
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
- 
+
             <div style={S.card}>
               <h3 style={S.sectionTitle}>Turnos por estado</h3>
               {r.total === 0 ? (
-                <p style={{ color: "#94a3b8" }}>Sin turnos en el período.</p>
+                <p style={{ color: colors.textMuted }}>Sin turnos en el período.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   {ORDEN_ESTADOS.filter((e) => r.porEstado[e]).map((e) => {
@@ -228,9 +214,9 @@ const cargar = useCallback(async () => {
                                          fontSize: "11px", fontWeight: "700", backgroundColor: c.bg, color: c.fg }}>
                             {c.label}
                           </span>
-                          <span style={{ color: "#475569" }}>{cant} · {pct}%</span>
+                          <span style={{ color: colors.textSecondary }}>{cant} · {pct}%</span>
                         </div>
-                        <div style={{ height: "8px", backgroundColor: "#f1f5f9", borderRadius: "6px", overflow: "hidden" }}>
+                        <div style={{ height: "8px", backgroundColor: colors.borderSoft, borderRadius: "6px", overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, backgroundColor: c.fg, borderRadius: "6px" }} />
                         </div>
                       </div>

@@ -33,3 +33,17 @@ export const LOG = {
 export const CANAL = { WHATSAPP: "WhatsApp", EMAIL: "Email", SMS: "SMS" };
 
 export const CANCELADO = (s) => s === "CANCELLED" || s === "NO_SHOW";
+
+// ── Opciones de cobro (compartidas por Turnos, Control de Turnos y Cobros) ──
+export const METODOS = [
+  { value: "CASH", label: "Efectivo" },
+  { value: "TRANSFER", label: "Transferencia" },
+  { value: "CREDIT_CARD", label: "Tarjeta crédito" },
+  { value: "DEBIT_CARD", label: "Tarjeta débito" },
+];
+
+export const TIPOS_PAGO = [
+  { value: "FULL_PAYMENT", label: "Pago total" },
+  { value: "DEPOSIT", label: "Seña" },
+  { value: "FINAL_PAYMENT", label: "Pago final" },
+];

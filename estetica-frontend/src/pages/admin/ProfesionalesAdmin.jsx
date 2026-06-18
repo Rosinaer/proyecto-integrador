@@ -10,6 +10,8 @@ import { useBanner } from "../../components/ui/Banner";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { TEL_PAIS, TEL_AREA_DEFAULT } from "../../config/clinica";
 import { armarTelefono, validarTelefono, partirTelefono } from "../../utils/telefono";
+import client, { mensajeDeError } from "../../api/client";
+import {colors, status} from "../../theme/colors"; 
 
 const TIPOS_DOC = ["DNI", "PASSPORT", "OTHER"];
 const DOC_LABEL = { DNI: "DNI", PASSPORT: "Pasaporte", OTHER: "Otro" };
@@ -48,12 +50,11 @@ const ProfesionalesAdmin = () => {
   const [cargandoForm, setCargandoForm] = useState(false);
   const [confirmDataProf, setConfirmDataProf] = useState(null); // persona existente a asociar
 
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const editable = puedeEditar(user?.role, "profesionales"); // recepción ve, no edita
   const banner = useBanner();
   const navigate = useNavigate();
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
- 
+
   const ordenarPorEstadoYNombre = (lista) => {
     const nombre = (p) => (p.person?.name || p.name || "").toLowerCase();
     return [...lista].sort((a, b) => {
@@ -64,14 +65,10 @@ const ProfesionalesAdmin = () => {
 
   const obtenerProfesionales = async () => {
     try {
-      const respuesta = await fetch(`${apiUrl}/professionals`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const datos = await respuesta.json();
-      if (!respuesta.ok) throw new Error(datos.error || "Error al traer profesionales");
+      const { data: datos } = await client.get("/professionals");
       setProfesionales(ordenarPorEstadoYNombre(datos));
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Error al traer profesionales");
     } finally {
       setCargando(false);
     }
@@ -130,9 +127,8 @@ const ProfesionalesAdmin = () => {
     setCargandoForm(true);
     try {
       const url = modoEdicion
-        ? `${apiUrl}/professionals/${profesionalEditandoId}`
-        : `${apiUrl}/professionals`;
-      const method = modoEdicion ? "PATCH" : "POST";
+        ? `/professionals/${profesionalEditandoId}`
+        : `/professionals`;
 
       let payload;
       if (modoEdicion) { 
@@ -155,22 +151,11 @@ const ProfesionalesAdmin = () => {
         if (confirmLink) payload.confirmLink = true;
       }
 
-      const respuesta = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const datos = await respuesta.json();
- 
-      if (!respuesta.ok && datos.needsConfirmation) {
-        setConfirmDataProf(datos);
-        return;
+      if (modoEdicion) {
+        await client.patch(url, payload);
+      } else {
+        await client.post(url, payload);
       }
-      if (!respuesta.ok) throw new Error(datos.mensaje || datos.error || "Error al guardar.");
 
       setConfirmDataProf(null);
       setModalFormAbierto(false);
@@ -186,7 +171,12 @@ const ProfesionalesAdmin = () => {
       });
       obtenerProfesionales();
     } catch (err) {
-      setErrorForm(err.message);
+      const datos = err.response?.data;
+      if (datos?.needsConfirmation) {
+        setConfirmDataProf(datos);
+        return;
+      }
+      setErrorForm(mensajeDeError(err) || "Error al guardar.");
     } finally {
       setCargandoForm(false);
     }
@@ -200,19 +190,7 @@ const ProfesionalesAdmin = () => {
   const ejecutarCambioEstado = async () => {
     try {
       const estaActivo = profesionalSeleccionado.active;
-      const respuesta = await fetch(`${apiUrl}/professionals/${profesionalSeleccionado.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ active: !estaActivo }),
-      });
-
-      if (!respuesta.ok) {
-        const datos = await respuesta.json();
-        throw new Error(datos.mensaje || datos.error || "No se pudo cambiar el estado");
-      }
+      await client.patch(`/professionals/${profesionalSeleccionado.id}`, { active: !estaActivo });
 
       setModalEstadoAbierto(false);
       const nombre = profesionalSeleccionado.person?.name || profesionalSeleccionado.name;
@@ -222,7 +200,7 @@ const ProfesionalesAdmin = () => {
       );
       obtenerProfesionales();
     } catch (err) {
-      banner.error(err.message);
+      banner.error(mensajeDeError(err) || "No se pudo cambiar el estado");
     }
   };
 
@@ -237,7 +215,7 @@ const ProfesionalesAdmin = () => {
       />
 
       {error && (
-        <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px" }}>
+        <div style={{ backgroundColor: status.error.bg, border: "1px solid status.error.border", color: status.error.fg, borderRadius: "8px", padding: "12px 16px", marginBottom: "16px" }}>
           {error}
         </div>
       )}
@@ -251,10 +229,10 @@ const ProfesionalesAdmin = () => {
           const estaActivo = p.active;
 
           return (
-            <Tr key={p.id} style={!estaActivo ? { backgroundColor: "#f1f5f9", color: "#94a3b8" } : undefined}>
+            <Tr key={p.id} style={!estaActivo ? { backgroundColor: colors.borderSoft, color: colors.textMuted } : undefined}>
               <Td>
                 <span
-                  style={{ color: "#6b21a8", cursor: "pointer" }}
+                  style={{ color: colors.brand, cursor: "pointer" }}
                   onClick={() => navigate(`/admin/profesionales/${p.id}`)}
                 >
                   <strong>{nombre}</strong>
@@ -264,18 +242,18 @@ const ProfesionalesAdmin = () => {
               <Td>
                 <div style={{ display: "flex", flexDirection: "column", fontSize: "13px" }}>
                   <span>{email}</span>
-                  <span style={{ color: "#64748b" }}>{tel}</span>
+                  <span style={{ color: colors.textSubtle }}>{tel}</span>
                 </div>
               </Td>
               <Td>
-                <span style={{ color: estaActivo ? "#16a34a" : "#d32f2f", fontWeight: "bold" }}>
+                <span style={{ color: estaActivo ? status.success.strong : status.error.strong, fontWeight: "bold" }}>
                   {estaActivo ? "● Activo" : "○ Inactivo"}
                 </span>
               </Td>
               <Td>
                 <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
                   <Button
-                    style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#8b5cf6" }}
+                    style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.brand }}
                     onClick={() => navigate(`/admin/profesionales/${p.id}`)}
                   >
                     Ver
@@ -283,14 +261,14 @@ const ProfesionalesAdmin = () => {
                   {editable && (
                     <>
                       <Button
-                        style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }}
+                        style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.textSubtle }}
                         onClick={() => abrirModalEditar(p)}
                       >
                         Editar
                       </Button>
                       <Button
                         variant={estaActivo ? "danger" : "primary"}
-                        style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: estaActivo ? "#d32f2f" : "#16a34a", color: "#fff" }}
+                        style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: estaActivo ? status.error.strong : status.success.strong, color: "#fff" }}
                         onClick={() => confirmarCambioEstado(p)}
                       >
                         {estaActivo ? "Desactivar" : "Activar"}
@@ -311,7 +289,7 @@ const ProfesionalesAdmin = () => {
       >
         <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
           {confirmDataProf && (
-            <div style={{ border: "1px solid #fde047", background: "#fef9c3", color: "#854d0e", borderRadius: 8, padding: "12px 14px" }}>
+            <div style={{ border: "1px solid #fde047", background: status.warning.soft, color: status.warning.fg, borderRadius: 8, padding: "12px 14px" }}>
               <div style={{ fontSize: 14, marginBottom: 8 }}>{confirmDataProf.mensaje}</div>
               {confirmDataProf.person && (
                 <div style={{ fontSize: 12, marginBottom: 10 }}>
@@ -321,7 +299,7 @@ const ProfesionalesAdmin = () => {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setConfirmDataProf(null)}>
+                <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setConfirmDataProf(null)}>
                   No, revisar
                 </Button>
                 <Button type="button" disabled={cargandoForm} onClick={() => doGuardarProf(true)}>
@@ -341,7 +319,7 @@ const ProfesionalesAdmin = () => {
             <select
               value={formData.documentType}
               onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
-              style={{ padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1" }}
+              style={{ padding: "10px", borderRadius: "5px", border: "1px solid colors.line" }}
             >
               {TIPOS_DOC.map((t) => <option key={t} value={t}>{DOC_LABEL[t]}</option>)}
             </select>
@@ -365,13 +343,13 @@ const ProfesionalesAdmin = () => {
 
           <div>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <span style={{ color: "#64748b", fontSize: 14 }}>+{TEL_PAIS}</span>
+              <span style={{ color: colors.textSubtle, fontSize: 14 }}>+{TEL_PAIS}</span>
               <input
                 type="text" inputMode="numeric" placeholder="Área" autoComplete="off"
                 value={formData.area}
                 onChange={(e) => setFormData({ ...formData, area: e.target.value })}
                 maxLength={4}
-                style={{ padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1", width: 80, boxSizing: "border-box" }}
+                style={{ padding: "10px", borderRadius: "5px", border: "1px solid colors.line", width: 80, boxSizing: "border-box" }}
                 required
               />
               <div style={{ flex: 1 }}>
@@ -383,7 +361,7 @@ const ProfesionalesAdmin = () => {
                 />
               </div>
             </div>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            <span style={{ fontSize: 11, color: colors.textMuted }}>
               Se guarda como {armarTelefono({ area: formData.area, numero: formData.numero, pais: TEL_PAIS }) || "—"} para WhatsApp.
             </span>
           </div>
@@ -406,7 +384,7 @@ const ProfesionalesAdmin = () => {
             value={formData.bio}
             onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
             rows={3}
-            style={{ width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1", fontFamily: "inherit", resize: "vertical" }}
+            style={{ width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: "5px", border: "1px solid colors.line", fontFamily: "inherit", resize: "vertical" }}
           />
 
           <Input
@@ -422,7 +400,7 @@ const ProfesionalesAdmin = () => {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>
+              <span style={{ fontSize: 11, color: colors.textMuted }}>
                 Dejala vacía para registrar al profesional sin acceso al sistema.
                 Si cargás una contraseña, además se le crea el usuario para iniciar sesión.
               </span>
@@ -430,13 +408,13 @@ const ProfesionalesAdmin = () => {
           )}
 
           {errorForm && (
-            <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: "6px", padding: "10px 12px", fontSize: "13px" }}>
+            <div style={{ backgroundColor: status.error.bg, border: "1px solid status.error.border", color: status.error.fg, borderRadius: "6px", padding: "10px 12px", fontSize: "13px" }}>
               {errorForm}
             </div>
           )}
 
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-            <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setModalFormAbierto(false)}>
+            <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setModalFormAbierto(false)}>
               Cancelar
             </Button>
             <Button type="submit">{cargandoForm ? "Guardando..." : "Guardar"}</Button>
@@ -451,7 +429,7 @@ const ProfesionalesAdmin = () => {
           {profesionalSeleccionado?.person?.name || profesionalSeleccionado?.name}?
         </p>
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
-          <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setModalEstadoAbierto(false)}>
+          <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setModalEstadoAbierto(false)}>
             Cancelar
           </Button>
           <Button variant={profesionalSeleccionado?.active ? "danger" : "primary"} onClick={ejecutarCambioEstado}>

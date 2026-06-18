@@ -120,3 +120,30 @@ export const fmtPrecio = (val) => {
     style: "currency", currency: "ARS", maximumFractionDigits: 0,
   }).format(val);
 };
+
+// 'YYYY-MM-DD' (o ISO completo) -> límites UTC correctos para la zona de la clínica.
+const esFechaPlana = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+const sumarDiasYmd = (ymd, n) => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const p = new Date(Date.UTC(y, m - 1, d + n));
+  const pad = (x) => String(x).padStart(2, '0');
+  return `${p.getUTCFullYear()}-${pad(p.getUTCMonth() + 1)}-${pad(p.getUTCDate())}`;
+};
+
+// Devuelve { gte, lt } / { gte, lte } listo para Prisma.
+export const rangoDiaClinica = (desde, hasta, tz = CLINIC_TZ) => {
+  const filtro = {};
+  if (desde) {
+    filtro.gte = esFechaPlana(desde)
+      ? instanteDesdeParedLocal(desde, '00:00', tz)
+      : new Date(desde);
+  }
+  if (hasta) {
+    filtro.lt = esFechaPlana(hasta)
+      ? instanteDesdeParedLocal(sumarDiasYmd(hasta, 1), '00:00', tz) // exclusivo: 00:00 del día siguiente
+      : new Date(hasta);
+    if (!esFechaPlana(hasta)) { filtro.lte = filtro.lt; delete filtro.lt; }
+  }
+  return filtro;
+};

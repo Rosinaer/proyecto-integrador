@@ -8,48 +8,19 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 import { fechaClinicaStr } from "../../config/clinica";
 import { fmtHora, ymdDeInstante, LECTURA_TZ } from "../../utils/fecha";
+import DetalleTurnoModal from "../../components/calendario/DetalleTurnoModal";
+import client, { mensajeDeError } from "../../api/client";
+import { ESTADOS, PAGO, METODOS, TIPOS_PAGO } from "../../constants/estados";
+import { moneda } from "../../utils/moneda";
+import {colors, status} from "../../theme/colors"; 
 
 const hora = (iso) => (iso ? fmtHora(iso) : "—");
-
-const fechaHora = (iso) =>
-  iso ? new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: LECTURA_TZ }) : "—";
 
 const fechaParedStr = ymdDeInstante;
 
 const fechaCorta = (iso) => (iso ? fechaParedStr(iso).split("-").reverse().join("/") : "—");
 
 const hoyStr = () => fechaClinicaStr();
-
-const ESTADOS = {
-  PENDING:     { label: "Pendiente",  bg: "#fef9c3", fg: "#854d0e" },
-  CONFIRMED:   { label: "Confirmado", bg: "#dcfce7", fg: "#166534" },
-  IN_PROGRESS: { label: "En curso",   bg: "#dbeafe", fg: "#1e40af" },
-  COMPLETED:   { label: "Completado", bg: "#d1fae5", fg: "#065f46" },
-  CANCELLED:   { label: "Cancelado",  bg: "#fee2e2", fg: "#991b1b" },
-  NO_SHOW:     { label: "No asistió", bg: "#f1f5f9", fg: "#64748b" },
-};
-
-const PAGO = {
-  PENDING:   { label: "Pendiente",   bg: "#fef9c3", fg: "#854d0e" },
-  PARTIAL:   { label: "Parcial",     bg: "#ffedd5", fg: "#9a3412" },
-  COMPLETED: { label: "Pagado",      bg: "#dcfce7", fg: "#166534" },
-  REFUNDED:  { label: "Reembolsado", bg: "#f1f5f9", fg: "#64748b" },
-};
-
-const METODOS = [
-  { value: "CASH", label: "Efectivo" },
-  { value: "TRANSFER", label: "Transferencia" },
-  { value: "CREDIT_CARD", label: "Tarjeta crédito" },
-  { value: "DEBIT_CARD", label: "Tarjeta débito" },
-];
-const TIPOS_PAGO = [
-  { value: "FULL_PAYMENT", label: "Pago total" },
-  { value: "DEPOSIT", label: "Seña" },
-  { value: "FINAL_PAYMENT", label: "Pago final" },
-];
-
-const moneda = (v) =>
-  Number(v || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 
 const nomProf = (t) => t?.professionalService?.professional?.person?.name ?? "—";
 const nomServ = (t) => t?.professionalService?.service?.name ?? "—";
@@ -61,21 +32,21 @@ const pagadoDe = (t) =>
 
 const S = {
   card: { backgroundColor: "#fff", borderRadius: "10px", padding: "20px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" },
-  label: { display: "block", fontSize: "13px", fontWeight: "600", color: "#6b21a8", marginBottom: "5px" },
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid colors.border" },
+  label: { display: "block", fontSize: "13px", fontWeight: "600", color: colors.brand, marginBottom: "5px" },
   select: { width: "100%", padding: "9px 12px", border: "1px solid #ccc", borderRadius: "6px",
             fontSize: "14px", backgroundColor: "#fff", cursor: "pointer", boxSizing: "border-box" },
   input: { width: "100%", padding: "9px 12px", border: "1px solid #ccc", borderRadius: "6px",
            fontSize: "14px", boxSizing: "border-box" },
-  sectionTitle: { margin: 0, color: "#6b21a8", fontSize: "1.2rem", fontWeight: "700" },
+  sectionTitle: { margin: 0, color: colors.brand, fontSize: "1.2rem", fontWeight: "700" },
   btnSmall: { padding: "5px 10px", fontSize: "12px" },
-  btnCancel: { backgroundColor: "#e2e8f0", color: "#475569" },
-  alertError: { backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "8px",
-                padding: "10px 16px", fontSize: "13px", color: "#991b1b", marginBottom: "14px" },
+  btnCancel: { backgroundColor: colors.border, color: colors.textSecondary },
+  alertError: { backgroundColor: status.error.bg, border: "1px solid status.error.border", borderRadius: "8px",
+                padding: "10px 16px", fontSize: "13px", color: status.error.fg, marginBottom: "14px" },
 };
 
 const Badge = ({ map, value }) => {
-  const c = map[value] || { label: value, bg: "#f1f5f9", fg: "#64748b" };
+  const c = map[value] || { label: value, bg: colors.borderSoft, fg: colors.textSubtle };
   return (
     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: "12px",
                    fontSize: "11px", fontWeight: "700", backgroundColor: c.bg, color: c.fg }}>
@@ -88,7 +59,6 @@ const TurnosControl = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const banner = useBanner();
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
   const esProfesional = user?.role === "PROFESSIONAL";
   const miProfId = user?.professionalId || "";
@@ -114,10 +84,6 @@ const TurnosControl = () => {
   const [confirmRem, setConfirmRem] = useState(null);
   const [enviandoRem, setEnviandoRem] = useState(false);
 
-  const headers = useCallback(() => ({
-    Authorization: `Bearer ${token}`, "Content-Type": "application/json",
-  }), [token]);
-
   const mostrarError = (m) => banner.error(m);
 
   useEffect(() => {
@@ -126,9 +92,8 @@ const TurnosControl = () => {
       setProfesionales(miProfId ? [{ id: miProfId, person: { name: user?.person?.name || "Mi perfil" } }] : []);
       return;
     }
-    fetch(`${API}/professionals`, { headers: headers() })
-      .then((r) => r.json())
-      .then((d) => setProfesionales(Array.isArray(d) ? d : []))
+    client.get("/professionals")
+      .then(({ data }) => setProfesionales(Array.isArray(data) ? data : []))
       .catch(() => setProfesionales([]));
   }, [token, esProfesional, miProfId]);
 
@@ -136,22 +101,20 @@ const TurnosControl = () => {
     if (!token || !desde || !hasta) return;
     setCargando(true);
     setError("");
-    const dDesde = new Date(`${desde}T00:00:00.000Z`).toISOString();
-    const dHasta = new Date(`${hasta}T23:59:59.999Z`).toISOString();
-    const q = new URLSearchParams({ desde: dDesde, hasta: dHasta });
-    if (profSel) q.set("professionalId", profSel);
+    // Mandamos las fechas planas (YYYY-MM-DD); el backend las interpreta en
+    // hora de la clínica. Así no se pierden los turnos de la noche.
+    const params = { desde, hasta };
+    if (profSel) params.professionalId = profSel;
     try {
-      const res = await fetch(`${API}/appointments?${q}`, { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al cargar turnos");
+      const { data } = await client.get("/appointments", { params });
       setTurnos(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Error al cargar turnos");
       setTurnos([]);
     } finally {
       setCargando(false);
     }
-  }, [token, API, headers, desde, hasta, profSel]);
+  }, [token, desde, hasta, profSel]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -171,11 +134,7 @@ const TurnosControl = () => {
     setAccionando(true);
     const prev = turno.status;
     try {
-      const res = await fetch(`${API}/appointments/${turno.id}/status`, {
-        method: "PATCH", headers: headers(), body: JSON.stringify({ status }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo cambiar el estado");
+      await client.patch(`/appointments/${turno.id}/status`, { status });
       setEstadoTurno(null);
       setTurnos((arr) => arr.map((t) => (t.id === turno.id ? { ...t, status } : t)));
       refrescar();
@@ -191,7 +150,7 @@ const TurnosControl = () => {
         ],
       });
     } catch (err) {
-      mostrarError(err.message);
+      mostrarError(mensajeDeError(err) || "No se pudo cambiar el estado");
     } finally {
       setAccionando(false);
     }
@@ -201,11 +160,7 @@ const TurnosControl = () => {
     if (!turno) return;
     setEnviandoRem(true);
     try {
-      const res = await fetch(`${API}/reminders/turno/${turno.id}`, {
-        method: "POST", headers: headers(),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo enviar el recordatorio");
+      const { data } = await client.post(`/reminders/turno/${turno.id}`);
 
       const etiqueta = (r) => (r.channel === "EMAIL" ? "Email al paciente" : "Aviso a la profesional");
       const estado = (r) => (r.skipped ? `omitido (${r.reason})` : r.status === "SENT" ? "enviado" : "falló");
@@ -218,7 +173,7 @@ const TurnosControl = () => {
         ],
       });
     } catch (err) {
-      mostrarError(err.message);
+      mostrarError(mensajeDeError(err) || "No se pudo enviar el recordatorio");
     } finally {
       setEnviandoRem(false);
     }
@@ -237,20 +192,16 @@ const TurnosControl = () => {
     }
     setAccionando(true);
     try {
-      const res = await fetch(`${API}/payments/${cobroTurno.id}`, {
-        method: "POST", headers: headers(),
-        body: JSON.stringify({
-          amount: Number(formCobro.amount), method: formCobro.method, type: formCobro.type,
-        }),
+      await client.post(`/payments/${cobroTurno.id}`, {
+        amount: Number(formCobro.amount), method: formCobro.method, type: formCobro.type,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo registrar el cobro");
       const metodoLbl = METODOS.find((m) => m.value === formCobro.method)?.label || formCobro.method;
       const tipoLbl = TIPOS_PAGO.find((m) => m.value === formCobro.type)?.label || formCobro.type;
       const totalPagado = pagadoDe(cobroTurno) + Number(formCobro.amount);
       const turnoCobrado = cobroTurno;
       setCobroTurno(null);
       refrescar();
+      window.dispatchEvent(new Event("senda:appointments-changed"));
       banner.success("Cobro registrado", {
         details: [
           ["Paciente", nomPac(turnoCobrado)],
@@ -262,7 +213,7 @@ const TurnosControl = () => {
         ],
       });
     } catch (err) {
-      mostrarError(err.message);
+      mostrarError(mensajeDeError(err) || "No se pudo registrar el cobro");
     } finally {
       setAccionando(false);
     }
@@ -328,9 +279,9 @@ const TurnosControl = () => {
         </div>
 
         {cargando ? (
-          <p style={{ color: "#94a3b8", textAlign: "center", padding: "32px 0" }}>Cargando turnos...</p>
+          <p style={{ color: colors.textMuted, textAlign: "center", padding: "32px 0" }}>Cargando turnos...</p>
         ) : turnosFiltrados.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 20px", color: "#94a3b8" }}>
+          <div style={{ textAlign: "center", padding: "40px 20px", color: colors.textMuted }}>
             <div style={{ fontSize: "2rem", marginBottom: "8px" }}>📭</div>
             No hay turnos para esos filtros.
           </div>
@@ -345,12 +296,12 @@ const TurnosControl = () => {
               return (
                 <Tr key={t.id}>
                   <Td>{fechaCorta(t.startsAt)}</Td>
-                  <Td><strong style={{ color: "#6b21a8" }}>{hora(t.startsAt)}</strong></Td>
+                  <Td><strong style={{ color: colors.brand }}>{hora(t.startsAt)}</strong></Td>
                   <Td>{hora(t.endsAt)}</Td>
                   <Td>
                     {t.patientId ? (
                       <span
-                        style={{ color: "#6b21a8", cursor: "pointer" }}
+                        style={{ color: colors.brand, cursor: "pointer" }}
                         onClick={() => navigate(`/admin/pacientes/${t.patientId}`)}
                         title="Ver ficha del paciente"
                       >
@@ -362,17 +313,17 @@ const TurnosControl = () => {
                   <Td>{nomServ(t)}</Td>
                   <Td><Badge map={ESTADOS} value={t.status} /></Td>
                   <Td><Badge map={PAGO} value={t.paymentStatus} /></Td>
-                  <Td><span style={{ fontSize: "12px", color: "#64748b" }}>{remTxt}</span></Td>
+                  <Td><span style={{ fontSize: "12px", color: colors.textSubtle }}>{remTxt}</span></Td>
                   <Td>
                     <div style={{ display: "flex", gap: "6px", justifyContent: "center", flexWrap: "wrap" }}>
-                      <Button style={{ ...S.btnSmall, backgroundColor: "#8b5cf6" }}
+                      <Button style={{ ...S.btnSmall, backgroundColor: colors.brand }}
                               onClick={() => setDetalle(t)}>Detalle</Button>
-                      <Button style={{ ...S.btnSmall, backgroundColor: "#64748b" }}
+                      <Button style={{ ...S.btnSmall, backgroundColor: colors.textSubtle }}
                               onClick={() => setEstadoTurno(t)}
                               title="Cambiar estado (se puede revertir a cualquier estado)">
                         Estado
                       </Button>
-                      <Button style={{ ...S.btnSmall, backgroundColor: "#16a34a", color: "#fff" }}
+                      <Button style={{ ...S.btnSmall, backgroundColor: status.success.strong, color: "#fff" }}
                               disabled={t.paymentStatus === "COMPLETED" || t.status === "CANCELLED"}
                               onClick={() => abrirCobro(t)}>
                         Cobrar
@@ -391,97 +342,15 @@ const TurnosControl = () => {
         )}
       </div>
 
+      {/* Detalle unificado (mismo cuerpo y botones que el del calendario) */}
       <Modal isOpen={!!detalle} onClose={() => setDetalle(null)} title="Detalle del turno">
-        {detalle && (() => {
-          const pagado = pagadoDe(detalle);
-          const total = Number(detalle.priceSnapshot || 0);
-          const saldo = Math.max(0, total - pagado);
-          const dur = Math.round((new Date(detalle.endsAt) - new Date(detalle.startsAt)) / 60000);
-          const pagos = Array.isArray(detalle.payments) ? detalle.payments : [];
-          const rems = Array.isArray(detalle.reminders) ? detalle.reminders : [];
-          const fila = (label, val) => (
-            <div><span style={{ color: "#64748b", fontSize: 12 }}>{label}</span><br /><strong>{val ?? "—"}</strong></div>
-          );
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: "10px 18px" }}>
-                {fila("Fecha", `${fechaHora(detalle.startsAt)} → ${hora(detalle.endsAt)}`)}
-                {fila("Duración", `${dur} min`)}
-                {fila("Estado", <Badge map={ESTADOS} value={detalle.status} />)}
-                {fila("Paciente", nomPac(detalle))}
-                {fila("Contacto", `${detalle.patient?.person?.phone || "—"} · ${detalle.patient?.person?.email || "—"}`)}
-                {fila("Documento", detalle.patient?.person ? `${detalle.patient.person.documentType} ${detalle.patient.person.document}` : "—")}
-                {fila("Profesional", nomProf(detalle))}
-                {fila("Servicio", nomServ(detalle))}
-                {fila("Tipo de turno", detalle.isOverbook ? "Sobreturno" : "Normal")}
-                {fila("Creado", fechaHora(detalle.createdAt))}
-              </div>
-
-              <div style={{ padding: "10px 12px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                  <strong>Pago</strong>
-                  <span><Badge map={PAGO} value={detalle.paymentStatus} /></span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px,1fr))", gap: "8px 14px", marginTop: 8 }}>
-                  {fila("Total", moneda(total))}
-                  {fila("Pagado", moneda(pagado))}
-                  {fila("Saldo", moneda(saldo))}
-                  {detalle.depositAmount ? fila("Seña", moneda(detalle.depositAmount)) : null}
-                  {detalle.discountAmount ? fila("Descuento", `${moneda(detalle.discountAmount)}${detalle.discountReason ? ` (${detalle.discountReason})` : ""}`) : null}
-                </div>
-                {pagos.length > 0 && (
-                  <div style={{ marginTop: 10 }}>
-                    <span style={{ color: "#64748b", fontSize: 12 }}>Movimientos:</span>
-                    <ul style={{ margin: "4px 0 0", paddingLeft: 18, color: "#475569", fontSize: 13 }}>
-                      {pagos.map((p) => (
-                        <li key={p.id}>
-                          {p.isRefund ? "− " : "+ "}{moneda(p.amount)} · {fechaHora(p.paidAt || p.createdAt)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {detalle.rescheduleRequestedAt && (
-                <div style={{ padding: "8px 12px", backgroundColor: "#fff7ed", borderRadius: "8px", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13 }}>
-                  ⟳ Marcado para reprogramar el {fechaHora(detalle.rescheduleRequestedAt)}
-                </div>
-              )}
-
-              {rems.length > 0 && (
-                <div style={{ fontSize: 13 }}>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>Recordatorios:</span>{" "}
-                  {rems.map((r, i) => (
-                    <span key={r.id || i} style={{ marginRight: 8 }}>
-                      {r.status === "SENT" ? "✓ Enviado" : r.status === "FAILED" ? "✕ Falló" : "Pendiente"}
-                      {r.sentAt ? ` (${fechaHora(r.sentAt)})` : ""}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {detalle.notes && (
-                <div style={{ padding: "10px", backgroundColor: "#f8fafc", borderRadius: "6px", borderLeft: "4px solid #6b21a8" }}>
-                  <strong>📝 Notas:</strong>
-                  <p style={{ margin: "5px 0 0 0", color: "#475569" }}>{detalle.notes}</p>
-                </div>
-              )}
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                {detalle.patientId && (
-                  <Button style={{ backgroundColor: "#8b5cf6" }}
-                          onClick={() => { const id = detalle.patientId; setDetalle(null); navigate(`/admin/pacientes/${id}`); }}>
-                    Ver ficha del paciente
-                  </Button>
-                )}
-                <Button style={{ backgroundColor: "#0ea5e9" }} onClick={() => setConfirmRem(detalle)}>
-                  Enviar recordatorio
-                </Button>
-              </div>
-            </div>
-          );
-        })()}
+        <DetalleTurnoModal
+          turno={detalle}
+          onFichaPaciente={(t) => { const id = t.patientId; setDetalle(null); navigate(`/admin/pacientes/${id}`); }}
+          onRecordatorio={(t) => { setDetalle(null); setConfirmRem(t); }}
+          onEstado={(t) => { setDetalle(null); setEstadoTurno(t); }}
+          onCobrar={(t) => { setDetalle(null); abrirCobro(t); }}
+        />
       </Modal>
 
       <Modal isOpen={!!confirmRem} onClose={() => !enviandoRem && setConfirmRem(null)} title="Enviar recordatorio">
@@ -491,15 +360,15 @@ const TurnosControl = () => {
               Se enviará el recordatorio del turno de{" "}
               <strong>{nomPac(confirmRem)}</strong> ({hora(confirmRem.startsAt)}):
             </p>
-            <ul style={{ margin: 0, paddingLeft: 18, color: "#475569" }}>
+            <ul style={{ margin: 0, paddingLeft: 18, color: colors.textSecondary }}>
               <li>Un <strong>email al paciente</strong> ({confirmRem.patient?.person?.email || "sin email"}).</li>
               <li>Un <strong>email para vos</strong> con el link de WhatsApp ya armado para mandárselo al paciente.</li>
             </ul>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>
+            <p style={{ margin: 0, color: colors.textSubtle, fontSize: 12 }}>
               El WhatsApp no se envía solo: te llega el link listo para tocar.
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} disabled={enviandoRem} onClick={() => setConfirmRem(null)}>
+              <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} disabled={enviandoRem} onClick={() => setConfirmRem(null)}>
                 Cancelar
               </Button>
               <Button type="button" disabled={enviandoRem} onClick={() => enviarRecordatorio(confirmRem)}>
@@ -516,7 +385,7 @@ const TurnosControl = () => {
             <p style={{ marginTop: 0 }}>
               Estado actual: <Badge map={ESTADOS} value={estadoTurno.status} /> — {nomPac(estadoTurno)} · {hora(estadoTurno.startsAt)}
             </p>
-            <p style={{ fontSize: "13px", color: "#64748b" }}>
+            <p style={{ fontSize: "13px", color: colors.textSubtle }}>
               Elegí el nuevo estado. Se puede mover a cualquier estado (por si hubo un click equivocado y querés revertirlo):
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
@@ -541,7 +410,7 @@ const TurnosControl = () => {
       <Modal isOpen={!!cobroTurno} onClose={() => setCobroTurno(null)} title="Registrar cobro">
         {cobroTurno && (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+            <p style={{ margin: 0, fontSize: "13px", color: colors.textSubtle }}>
               {nomPac(cobroTurno)} · {nomServ(cobroTurno)} — Total {moneda(cobroTurno.priceSnapshot)},
               pagado {moneda(pagadoDe(cobroTurno))}.
             </p>

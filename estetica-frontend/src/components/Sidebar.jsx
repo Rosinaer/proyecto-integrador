@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { puede } from "../config/permisos";
+import client from "../api/client";
 import "./Sidebar.css";
 
 const LINKS = [
@@ -24,6 +25,7 @@ const LINKS = [
 
   // Administración
   { to: "/admin/usuarios", label: "Usuarios", pagina: "usuarios" },
+  { to: "/admin/cobros", label: "Cobros", pagina: "cobros" },
 
   // Cuenta
   { to: "/admin/mi-perfil", label: "Mi Perfil", pagina: "miPerfil" },
@@ -35,8 +37,6 @@ function Sidebar({ open = true, onClose, onNavigate }) {
   const { user, token, logout } = useAuth();
   const [pendientes, setPendientes] = useState(0);
 
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
   useEffect(() => {
     if (!token) return;
     if (!puede(user?.role, "reprogramar")) {
@@ -46,10 +46,9 @@ function Sidebar({ open = true, onClose, onNavigate }) {
     let activo = true;
     const traer = async () => {
       try {
-        const res = await fetch(`${API}/appointments?needsReschedule=true`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const { data } = await client.get("/appointments", {
+          params: { needsReschedule: true },
         });
-        const data = await res.json();
         if (activo) setPendientes(Array.isArray(data) ? data.length : 0);
       } catch {
         /* silencioso: el badge simplemente no se muestra */
@@ -67,7 +66,7 @@ function Sidebar({ open = true, onClose, onNavigate }) {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("senda:appointments-changed", onChanged);
     };
-  }, [token, API, location.pathname, user?.role]);
+  }, [token, location.pathname, user?.role]);
 
   const handleLogout = () => {
     logout();

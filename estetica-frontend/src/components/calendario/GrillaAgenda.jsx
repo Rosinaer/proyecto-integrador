@@ -1,10 +1,7 @@
 import { fmtHora, fmtFechaLarga, minutosDelDia } from "../../utils/fecha";
 import { fechaClinicaStr } from "../../config/clinica";
+import {colors} from "../../theme/colors"; 
 
-// Grilla de agenda: gutter de horas + N columnas. Cada columna lleva su
-// cabecera y su cuerpo juntos, por eso nunca se desfasan entre sí.
-// Acá vive la geometría compartida de la agenda (la importan también las
-// columnas de TurnosAdmin).
 
 export const HORA_INI = 7;
 export const HORA_FIN = 21;
@@ -46,13 +43,13 @@ function empacar(items) {
 
 export const Columna = ({ items, colorDe, onPick }) => (
   <div style={{
-    position: "relative", height: ALTO, borderLeft: "1px solid #e2e8f0",
-    backgroundImage: `repeating-linear-gradient(to bottom, #f1f5f9 0, #f1f5f9 1px, transparent 1px, transparent ${60 * PX_MIN}px)`,
+    position: "relative", height: ALTO, borderLeft: "1px solid colors.border",
+    backgroundImage: `repeating-linear-gradient(to bottom, colors.borderSoft 0, colors.borderSoft 1px, transparent 1px, transparent ${60 * PX_MIN}px)`,
   }}>
     {empacar(items).map(({ t, s, e, col, lanes }) => {
       const top = Math.max(0, (s - HORA_INI * 60) * PX_MIN);
       const height = Math.max(16, (e - s) * PX_MIN - 2);
-      const color = colorDe[t.professionalService?.professional?.id] || "#6b21a8";
+      const color = colorDe[t.professionalService?.professional?.id] || colors.brand;
       const cancel = CANCELADO(t.status);
       const w = 100 / lanes;
       return (
@@ -64,8 +61,8 @@ export const Columna = ({ items, colorDe, onPick }) => (
             opacity: cancel ? 0.55 : 1,
           }}>
           <div style={{ fontWeight: 700, color, textDecoration: cancel ? "line-through" : "none" }}>{fmtHora(t.startsAt)}</div>
-          <div style={{ color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.patient?.person?.name || "—"}</div>
-          {height > 42 && <div style={{ color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.professionalService?.service?.name}</div>}
+          <div style={{ color: colors.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.patient?.person?.name || "—"}</div>
+          {height > 42 && <div style={{ color: colors.textSubtle, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.professionalService?.service?.name}</div>}
         </div>
       );
     })}
@@ -76,13 +73,13 @@ export const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
   const items = slots.map((s) => ({ ...s, startsAt: s.startTime, endsAt: s.endTime }));
   return (
     <div style={{
-      position: "relative", height: ALTO, borderLeft: "1px solid #e2e8f0",
-      backgroundImage: `repeating-linear-gradient(to bottom, #f1f5f9 0, #f1f5f9 1px, transparent 1px, transparent ${60 * PX_MIN}px)`,
+      position: "relative", height: ALTO, borderLeft: "1px solid colors.border",
+      backgroundImage: `repeating-linear-gradient(to bottom, colors.borderSoft 0, colors.borderSoft 1px, transparent 1px, transparent ${60 * PX_MIN}px)`,
     }}>
       {empacar(items).map(({ t, s, e, col, lanes }) => {
         const top = Math.max(0, (s - HORA_INI * 60) * PX_MIN);
         const height = Math.max(18, (e - s) * PX_MIN - 2);
-        const color = colorDe[t.professionalId] || "#6b21a8";
+        const color = colorDe[t.professionalId] || colors.brand;
         const ocupados = (t.appointments || []).filter((a) => !CANCELADO(a.status)).length;
         const w = 100 / lanes;
         return (
@@ -98,9 +95,9 @@ export const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
             <div style={{ fontWeight: 700, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {nombreDe[t.professionalId] || "—"}
             </div>
-            <div style={{ color: "#475569", whiteSpace: "nowrap" }}>{fmtHora(t.startTime)}–{fmtHora(t.endTime)}</div>
+            <div style={{ color: colors.textSecondary, whiteSpace: "nowrap" }}>{fmtHora(t.startTime)}–{fmtHora(t.endTime)}</div>
             {height > 50 && (
-              <div style={{ color: "#64748b" }}>
+              <div style={{ color: colors.textSubtle }}>
                 {ocupados > 0 ? `${ocupados} turno${ocupados === 1 ? "" : "s"} reservado${ocupados === 1 ? "" : "s"}` : "libre"}
               </div>
             )}
@@ -115,15 +112,15 @@ export function GrillaAgenda({ columnas, minCol, children }) {
   const horas = Array.from({ length: HORA_FIN - HORA_INI }, (_, i) => HORA_INI + i);
 
   return (
-    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff" }}>
+    <div style={{ overflowX: "auto", border: "1px solid colors.border", borderRadius: 10, background: "#fff" }}>
       <div style={{ display: "flex", minWidth: GUTTER + columnas.length * minCol }}>
 
         {/* Gutter: hueco de cabecera + etiquetas de hora */}
         <div style={{ flex: `0 0 ${GUTTER}px` }}>
-          <div style={{ height: HEADER_H, borderBottom: "1px solid #e2e8f0" }} />
+          <div style={{ height: HEADER_H, borderBottom: "1px solid colors.border" }} />
           <div style={{ position: "relative", height: ALTO }}>
             {horas.map((h) => (
-              <div key={h} style={{ position: "absolute", top: (h - HORA_INI) * 60 * PX_MIN - 6, right: 6, fontSize: 11, color: "#94a3b8" }}>
+              <div key={h} style={{ position: "absolute", top: (h - HORA_INI) * 60 * PX_MIN - 6, right: 6, fontSize: 11, color: colors.textMuted }}>
                 {pad(h)}:00
               </div>
             ))}
@@ -136,8 +133,8 @@ export function GrillaAgenda({ columnas, minCol, children }) {
             <div style={{
               height: HEADER_H, boxSizing: "border-box", overflow: "hidden",
               padding: "8px 6px", textAlign: "center",
-              borderLeft: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0",
-              background: c.esHoy ? "#f5f3ff" : "#fff",
+              borderLeft: "1px solid colors.border", borderBottom: "1px solid colors.border",
+              background: c.esHoy ? colors.brandBg : "#fff",
             }}>
               {c.cabecera}
             </div>
@@ -166,10 +163,10 @@ export const CoberturaVista = ({ dias, slots, colorDe, nombreDe, onPick }) => {
       esHoy,
       cabecera: (
         <>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: colors.text, textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {fmtFechaLarga(d)}
           </div>
-          <div style={{ fontSize: 11, color: "#94a3b8" }}>
+          <div style={{ fontSize: 11, color: colors.textMuted }}>
             {nFranjas > 0 ? `${nFranjas} franja${nFranjas === 1 ? "" : "s"} · ${reservados} reservado${reservados === 1 ? "" : "s"}` : "sin agenda"}
           </div>
         </>
@@ -181,7 +178,7 @@ export const CoberturaVista = ({ dias, slots, colorDe, nombreDe, onPick }) => {
   return (
     <GrillaAgenda columnas={columnas} minCol={minCol}>
       {!hay && (
-        <div style={{ padding: "30px 20px", textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
+        <div style={{ padding: "30px 20px", textAlign: "center", color: colors.textMuted, fontSize: 14 }}>
           No hay agendas abiertas para esta semana. Generá la disponibilidad desde <strong>Agendas</strong>.
         </div>
       )}

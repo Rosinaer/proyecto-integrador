@@ -6,22 +6,23 @@ import { GestionServiciosProfesional } from "../../components/GestionServiciosPr
 import { GestionHorariosRecurrentes } from "../../components/GestionHorariosRecurrentes";
 import { PageHeader } from "../../components/ui/PageHeader";
 import client, { mensajeDeError } from "../../api/client";
+import {colors, status} from "../../theme/colors"; 
 
-const PURPLE = "#6b21a8";
-const BORDER = "#cbd5e1";
+const PURPLE = colors.brand;
+const BORDER = colors.line;
 
 const DOC_LABEL = { DNI: "DNI", PASSPORT: "Pasaporte", OTHER: "Otro" };
  
 const ROLES = {
-  ADMIN:        { label: "Administrador", fg: "#6b21a8" },
+  ADMIN:        { label: "Administrador", fg: colors.brand },
   RECEPTIONIST: { label: "Recepción",     fg: "#0369a1" },
-  PROFESSIONAL: { label: "Profesional",   fg: "#16a34a" },
-  PATIENT:      { label: "Paciente",      fg: "#854d0e" },
+  PROFESSIONAL: { label: "Profesional",   fg: status.success.strong },
+  PATIENT:      { label: "Paciente",      fg: status.warning.fg },
 };
 
 
 const labelStyle = { display: "block", marginBottom: 6, fontSize: 13, color: "#555", fontWeight: "bold" };
-const errBox = { padding: "10px 12px", borderRadius: 8, backgroundColor: "#fef2f2", color: "#c62828", fontSize: 13, fontWeight: "bold", marginBottom: 14 };
+const errBox = { padding: "10px 12px", borderRadius: 8, backgroundColor: status.error.bg, color: "#c62828", fontSize: 13, fontWeight: "bold", marginBottom: 14 };
 const inputStyle = { width: "100%", boxSizing: "border-box", padding: "9px 12px", border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 14 };
 
 const MiPerfil = () => {
@@ -88,7 +89,7 @@ const MiPerfil = () => {
 
   const persona = perfil?.person || {};
   const profesional = perfil?.professional || null;
-  const rolInfo = ROLES[perfil?.role] || { label: perfil?.role || "—", fg: "#64748b" };
+  const rolInfo = ROLES[perfil?.role] || { label: perfil?.role || "—", fg: colors.textSubtle };
   const docTxt = persona.document ? `${DOC_LABEL[persona.documentType] || ""} ${persona.document}`.trim() : "—";
 
   return (
@@ -106,14 +107,14 @@ const MiPerfil = () => {
  
       <div
         style={{
-          backgroundColor: "#f8fafc",
-          border: "1px solid #e2e8f0",
+          backgroundColor: colors.bg,
+          border: "1px solid colors.border",
           borderRadius: "8px",
           padding: "20px",
           marginBottom: "30px",
         }}
       >
-        <h3 style={{ color: "#475569", marginBottom: "15px" }}>Datos personales</h3>
+        <h3 style={{ color: colors.textSecondary, marginBottom: "15px" }}>Datos personales</h3>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "14px" }}>
           <p><strong>Nombre:</strong> {persona.name || "—"}</p>
@@ -128,13 +129,13 @@ const MiPerfil = () => {
             style={{
               marginTop: "15px",
               backgroundColor: "#f8f4ff",
-              border: "1px solid #e9d5ff",
+              border: "1px solid colors.brandTintLight",
               borderRadius: "6px",
               padding: "12px",
             }}
           >
             <strong style={{ color: PURPLE }}>Bio:</strong>
-            <p style={{ marginTop: "5px", color: "#475569", fontSize: "14px" }}>{profesional.bio}</p>
+            <p style={{ marginTop: "5px", color: colors.textSecondary, fontSize: "14px" }}>{profesional.bio}</p>
           </div>
         )}
       </div>
@@ -152,14 +153,14 @@ const MiPerfil = () => {
  
       <div
         style={{
-          backgroundColor: "#f8fafc",
-          border: "1px solid #e2e8f0",
+          backgroundColor: colors.bg,
+          border: "1px solid colors.border",
           borderRadius: "8px",
           padding: "20px",
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-          <h3 style={{ color: "#475569", margin: 0 }}>
+          <h3 style={{ color: colors.textSecondary, margin: 0 }}>
             <span style={{ marginRight: 8 }} aria-hidden>🔒</span>
             Cambiar contraseña
           </h3>
@@ -167,14 +168,14 @@ const MiPerfil = () => {
             type="button"
             onClick={() => setVerPass((v) => !v)}
             style={{
-              border: `1px solid ${BORDER}`, background: "#fff", color: "#475569",
+              border: `1px solid ${BORDER}`, background: "#fff", color: colors.textSecondary,
               borderRadius: 8, padding: "6px 12px", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
             }}
           >
             {verPass ? "Ocultar" : "Mostrar"}
           </button>
         </div>
-        <p style={{ color: "#94a3b8", fontSize: 13, margin: "0 0 16px 0" }}>Actualizá tu contraseña de acceso.</p>
+        <p style={{ color: colors.textMuted, fontSize: 13, margin: "0 0 16px 0" }}>Actualizá tu contraseña de acceso.</p>
 
         <form onSubmit={cambiarPass}>
           {errorPass && <div style={errBox}>{errorPass}</div>}
@@ -218,7 +219,7 @@ const MiPerfil = () => {
             />
           </div>
 
-          <p style={{ fontSize: 12, color: "#94a3b8", margin: "10px 0 0" }}>
+          <p style={{ fontSize: 12, color: colors.textMuted, margin: "10px 0 0" }}>
             Mínimo 6 caracteres. Usá una combinación que no uses en otros sitios.
           </p>
 

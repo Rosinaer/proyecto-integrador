@@ -12,6 +12,7 @@ import {
   actualizarProfessionalService,
   obtenerServicios,
 } from "../api/services.api";
+import {colors, status} from "../theme/colors"; 
 
 const moneda = (v) =>
   Number(v).toLocaleString("es-AR", {
@@ -22,7 +23,7 @@ const moneda = (v) =>
 
 const esActivo = (ps) => ps.active !== false; // tolera registros viejos sin el campo
 
-export const GestionServiciosProfesional = ({ professionalId, token }) => {
+export const GestionServiciosProfesional = ({ professionalId }) => {
   const banner = useBanner();
   const { user } = useAuth();
   // Admin gestiona cualquier ficha; el profesional, la suya (el backend valida).
@@ -60,7 +61,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
     } finally {
       setCargando(false);
     }
-  }, [professionalId, token]);
+  }, [professionalId]);
 
   useEffect(() => {
     cargar();
@@ -181,7 +182,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
           marginBottom: "12px",
         }}
       >
-        <h3 style={{ color: "#475569", margin: 0 }}>Servicios del profesional</h3>
+        <h3 style={{ color: colors.textSecondary, margin: 0 }}>Servicios del profesional</h3>
         {editable && (
           <Button
             onClick={abrirCrear}
@@ -201,9 +202,9 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
       {error && (
         <div
           style={{
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fca5a5",
-            color: "#991b1b",
+            backgroundColor: status.error.bg,
+            border: "1px solid status.error.border",
+            color: status.error.fg,
             borderRadius: "8px",
             padding: "10px 14px",
             fontSize: "13px",
@@ -215,15 +216,15 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
       )}
 
       {cargando ? (
-        <p style={{ color: "#94a3b8", padding: "16px 0" }}>Cargando servicios...</p>
+        <p style={{ color: colors.textMuted, padding: "16px 0" }}>Cargando servicios...</p>
       ) : servicios.length === 0 ? (
-        <p style={{ color: "#94a3b8" }}>Sin servicios asignados.</p>
+        <p style={{ color: colors.textMuted }}>Sin servicios asignados.</p>
       ) : (
         <Table headers={["Servicio", "Categoría", "Duración", "Precio", "Estado", "Acciones"]}>
           {servicios.map((ps) => {
             const activo = esActivo(ps);
             return (
-              <Tr key={ps.id} style={!activo ? { backgroundColor: "#f1f5f9", color: "#94a3b8" } : undefined}>
+              <Tr key={ps.id} style={!activo ? { backgroundColor: colors.borderSoft, color: colors.textMuted } : undefined}>
                 <Td>
                   <strong>{ps.service?.name || "—"}</strong>
                 </Td>
@@ -231,7 +232,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
                 <Td>{ps.durationMinutes} min</Td>
                 <Td>{moneda(ps.price)}</Td>
                 <Td>
-                  <span style={{ color: activo ? "#16a34a" : "#d32f2f", fontWeight: "bold" }}>
+                  <span style={{ color: activo ? status.success.strong : status.error.strong, fontWeight: "bold" }}>
                     {activo ? "● Activo" : "○ Inactivo"}
                   </span>
                 </Td>
@@ -241,14 +242,14 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
                       {activo ? (
                         <>
                           <Button
-                            style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }}
+                            style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.textSubtle }}
                             onClick={() => abrirEditar(ps)}
                           >
                             Editar
                           </Button>
                           <Button
                             variant="danger"
-                            style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#d32f2f", color: "#fff" }}
+                            style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: status.error.strong, color: "#fff" }}
                             onClick={() => setPsADesactivar(ps)}
                           >
                             Desactivar
@@ -256,7 +257,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
                         </>
                       ) : (
                         <Button
-                          style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#16a34a", color: "#fff" }}
+                          style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: status.success.strong, color: "#fff" }}
                           onClick={() => cambiarEstado(ps, true)}
                         >
                           Reactivar
@@ -264,7 +265,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
                       )}
                     </div>
                   ) : (
-                    <span style={{ color: "#94a3b8" }}>—</span>
+                    <span style={{ color: colors.textMuted }}>—</span>
                   )}
                 </Td>
               </Tr>
@@ -285,7 +286,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
 
         <form onSubmit={guardar} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "10px" }}>
           {modoEdicion ? (
-            <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
+            <p style={{ fontSize: "13px", color: colors.textSubtle, margin: 0 }}>
               El precio nuevo aplica solo a reservas futuras. Los turnos ya creados mantienen el precio original.
             </p>
           ) : (
@@ -321,7 +322,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
           <div style={{ display: "flex", gap: "10px", marginTop: "10px", justifyContent: "flex-end" }}>
             <Button
               type="button"
-              style={{ backgroundColor: "#e2e8f0", color: "#475569" }}
+              style={{ backgroundColor: colors.border, color: colors.textSecondary }}
               onClick={() => setModalAbierto(false)}
             >
               Cancelar
@@ -340,7 +341,7 @@ export const GestionServiciosProfesional = ({ professionalId, token }) => {
           Podés reactivarlo más adelante.
         </p>
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
-          <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setPsADesactivar(null)}>
+          <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setPsADesactivar(null)}>
             Cancelar
           </Button>
           <Button variant="danger" onClick={() => cambiarEstado(psADesactivar, false)}>

@@ -9,6 +9,7 @@ import {
   obtenerHistorialTurnos,
   obtenerHistorialPagos,
 } from "../../api/patients.api";
+import {colors, status} from "../../theme/colors"; 
 
 const FichaPacienteAdmin = () => {
   const { id } = useParams();
@@ -68,8 +69,8 @@ const FichaPacienteAdmin = () => {
     <div>
       <Button
         style={{
-          backgroundColor: "#e2e8f0",
-          color: "#475569",
+          backgroundColor: colors.border,
+          color: colors.textSecondary,
           marginBottom: "20px",
         }}
         onClick={() => navigate("/admin/pacientes")}
@@ -81,14 +82,14 @@ const FichaPacienteAdmin = () => {
 
       <div
         style={{
-          backgroundColor: "#f8fafc",
-          border: "1px solid #e2e8f0",
+          backgroundColor: colors.bg,
+          border: "1px solid colors.border",
           borderRadius: "8px",
           padding: "20px",
           marginBottom: "30px",
         }}
       >
-        <h3 style={{ color: "#475569", marginBottom: "15px" }}>
+        <h3 style={{ color: colors.textSecondary, marginBottom: "15px" }}>
           Datos personales
         </h3>
 
@@ -122,13 +123,13 @@ const FichaPacienteAdmin = () => {
           <div
             style={{
               marginTop: "15px",
-              backgroundColor: "#fef9c3",
+              backgroundColor: status.warning.soft,
               border: "1px solid #fde047",
               borderRadius: "6px",
               padding: "12px",
             }}
           >
-            <strong style={{ color: "#854d0e" }}>Notas clínicas:</strong>
+            <strong style={{ color: status.warning.fg }}>Notas clínicas:</strong>
             <p style={{ marginTop: "5px", color: "#713f12", fontSize: "14px" }}>
               {paciente.clinicalNotes}
             </p>
@@ -137,12 +138,12 @@ const FichaPacienteAdmin = () => {
       </div>
  
 
-      <h3 style={{ color: "#475569", marginBottom: "15px" }}>
+      <h3 style={{ color: colors.textSecondary, marginBottom: "15px" }}>
         Historial de turnos
       </h3>
 
       {turnos.length === 0 ? (
-        <p style={{ color: "#94a3b8", marginBottom: "30px" }}>
+        <p style={{ color: colors.textMuted, marginBottom: "30px" }}>
           Sin turnos registrados.
         </p>
       ) : (
@@ -190,12 +191,12 @@ const FichaPacienteAdmin = () => {
 
       {puedeVerPagos && (<> 
 
-      <h3 style={{ color: "#475569", marginBottom: "15px" }}>
+      <h3 style={{ color: colors.textSecondary, marginBottom: "15px" }}>
         Historial de pagos
       </h3>
 
       {pagos.length === 0 ? (
-        <p style={{ color: "#94a3b8" }}>Sin pagos registrados.</p>
+        <p style={{ color: colors.textMuted }}>Sin pagos registrados.</p>
       ) : (
         <Table headers={["Fecha", "Servicio", "Método", "Tipo", "Monto"]}>
           {pagos.map((p) => (

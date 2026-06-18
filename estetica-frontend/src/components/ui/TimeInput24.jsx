@@ -79,7 +79,7 @@ export const TimeInput24 = ({ value = "00:00", onChange, disabled = false, style
 
       </select>
 
-      <span style={{ color: "#64748b", fontWeight: 700 }}>:</span>
+      <span style={{ color: colors.textSubtle, fontWeight: 700 }}>:</span>
 
       <select
 

@@ -7,9 +7,10 @@ import { PacienteFormModal } from "../../components/PacienteFormModal";
 import { obtenerPacientes } from "../../api/patients.api";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { puedeEditar, puede } from "../../config/permisos";
+import {colors} from "../../theme/colors"; 
 
-const PURPLE = "#6b21a8";
-const BORDER = "#cbd5e1";
+const PURPLE = colors.brand;
+const BORDER = colors.line;
 
 const PacientesAdmin = () => {
   const [pacientes, setPacientes] = useState([]);
@@ -74,7 +75,7 @@ const PacientesAdmin = () => {
             type="button"
             onClick={() => setBusqueda("")}
             title="Limpiar"
-            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#94a3b8", fontSize: 18, cursor: "pointer", lineHeight: 1 }}
+            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: colors.textMuted, fontSize: 18, cursor: "pointer", lineHeight: 1 }}
           >
             &times;
           </button>
@@ -86,7 +87,7 @@ const PacientesAdmin = () => {
       {cargando ? (
         <p style={{ textAlign: "center", marginTop: "50px" }}>Cargando pacientes...</p>
       ) : pacientes.length === 0 ? (
-        <p style={{ color: "#64748b", marginTop: 20 }}>
+        <p style={{ color: colors.textSubtle, marginTop: 20 }}>
           {busqueda ? "No se encontraron pacientes con ese criterio." : "Todavía no hay pacientes cargados."}
         </p>
       ) : (
@@ -104,12 +105,12 @@ const PacientesAdmin = () => {
               <Td>{p.person?.cuilCuit}</Td>
               <Td>
                 <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                  <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#8b5cf6" }}
+                  <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.brand }}
                     onClick={() => navigate(`/admin/pacientes/${p.id}`)}>
                     Ver
                   </Button>
                   {editable && (
-                    <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }}
+                    <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.textSubtle }}
                       onClick={() => abrirEdicion(p)}>
                       Editar
                     </Button>

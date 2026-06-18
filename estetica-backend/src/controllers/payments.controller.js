@@ -1,13 +1,24 @@
+// estetica-backend/src/controllers/payments.controller.js
 import prisma from '../config/prisma.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { PAYMENT_METHODS, PAYMENT_TYPES } from '../constants/payments.js';
+import { rangoDiaClinica } from '../utils/tiempo.js';
 
+// Neto pagado de un turno (pagos menos reembolsos).
+const netoPagado = (payments = []) =>
+  payments.reduce((acc, p) => acc + (p.isRefund ? -1 : 1) * Number(p.amount), 0);
+
+// Estado de pago a partir del neto y el precio final.
+const estadoSegunNeto = (neto, precioFinal) => {
+  if (neto <= 0) return 'PENDING';
+  if (neto >= precioFinal) return 'COMPLETED';
+  return 'PARTIAL';
+};
 
 export const crearPago = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
   const { amount, method, type } = req.body;
 
-  
   if (!amount || !method || !type) {
     return res.status(400).json({
       mensaje: 'amount, method y type son obligatorios',
@@ -32,7 +43,6 @@ export const crearPago = asyncHandler(async (req, res) => {
     });
   }
 
-  
   const turno = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: { payments: true },
@@ -42,36 +52,27 @@ export const crearPago = asyncHandler(async (req, res) => {
     return res.status(404).json({ mensaje: 'Turno no encontrado' });
   }
 
-  
   if (turno.status === 'CANCELLED') {
     return res.status(400).json({
       mensaje: 'No se puede registrar un pago en un turno cancelado',
     });
   }
 
-  
-  const totalPagado = turno.payments
-    .filter((p) => !p.isRefund)
-    .reduce((acc, p) => acc + Number(p.amount), 0);
-
   const precioFinal =
     Number(turno.priceSnapshot) - Number(turno.discountAmount || 0);
 
-  const nuevoTotal = totalPagado + Number(amount);
+  // Neto actual (descontando reembolsos previos) para no bloquear de más.
+  const totalNeto = netoPagado(turno.payments);
+  const nuevoTotal = totalNeto + Number(amount);
 
   if (nuevoTotal > precioFinal) {
     return res.status(400).json({
-      mensaje: `El monto supera el precio del turno. Precio: $${precioFinal}, Ya pagado: $${totalPagado}, Disponible: $${(precioFinal - totalPagado).toFixed(2)}`,
+      mensaje: `El monto supera el precio del turno. Precio: $${precioFinal}, Ya pagado (neto): $${totalNeto}, Disponible: $${(precioFinal - totalNeto).toFixed(2)}`,
     });
   }
 
-  
-  let nuevoPaymentStatus = 'PARTIAL';
-  if (nuevoTotal >= precioFinal) {
-    nuevoPaymentStatus = 'COMPLETED';
-  }
+  const nuevoPaymentStatus = estadoSegunNeto(nuevoTotal, precioFinal);
 
-  
   const resultado = await prisma.$transaction(async (tx) => {
     const pago = await tx.payment.create({
       data: {
@@ -116,7 +117,6 @@ export const obtenerPagosPorTurno = asyncHandler(async (req, res) => {
     orderBy: { paidAt: 'asc' },
   });
 
-  // Calcular resumen financiero del turno
   const precioFinal =
     Number(turno.priceSnapshot) - Number(turno.discountAmount || 0);
 
@@ -194,6 +194,16 @@ export const registrarReembolso = asyncHandler(async (req, res) => {
     });
   }
 
+  // Estado correcto tras un reembolso (parcial o total).
+  const precioFinal =
+    Number(turno.priceSnapshot) - Number(turno.discountAmount || 0);
+  const netoDespues = totalPagado - (totalReembolsadoAntes + Number(amount));
+
+  let nuevoEstado = 'REFUNDED';
+  if (netoDespues >= precioFinal) nuevoEstado = 'COMPLETED';
+  else if (netoDespues > 0) nuevoEstado = 'PARTIAL';
+  // netoDespues <= 0 => REFUNDED
+
   const resultado = await prisma.$transaction(async (tx) => {
     const reembolso = await tx.payment.create({
       data: {
@@ -207,7 +217,7 @@ export const registrarReembolso = asyncHandler(async (req, res) => {
 
     await tx.appointment.update({
       where: { id: appointmentId },
-      data: { paymentStatus: 'REFUNDED' },
+      data: { paymentStatus: nuevoEstado },
     });
 
     return reembolso;
@@ -216,6 +226,7 @@ export const registrarReembolso = asyncHandler(async (req, res) => {
   res.status(201).json({
     mensaje: 'Reembolso registrado correctamente',
     reembolso: resultado,
+    estadoPago: nuevoEstado,
   });
 });
 
@@ -232,10 +243,8 @@ export const obtenerHistorialPagos = asyncHandler(async (req, res) => {
     hasta,
   } = req.query;
 
-  // Construir filtros dinámicamente
   const where = {};
 
-  // Filtro por método de pago
   if (method) {
     if (!PAYMENT_METHODS.includes(method)) {
       return res.status(400).json({
@@ -245,7 +254,6 @@ export const obtenerHistorialPagos = asyncHandler(async (req, res) => {
     where.method = method;
   }
 
-  // Filtro por tipo de pago
   if (type) {
     if (!PAYMENT_TYPES.includes(type)) {
       return res.status(400).json({
@@ -255,20 +263,16 @@ export const obtenerHistorialPagos = asyncHandler(async (req, res) => {
     where.type = type;
   }
 
-  // Filtro por reembolsos
   if (isRefund !== undefined) {
     where.isRefund = isRefund === 'true';
   }
 
-  // Filtro por rango de fechas
+  // Filtro por rango de fechas EN HORA DE LA CLÍNICA (arregla los cobros
+  // de las 23 hs que "no aparecían" salvo poniendo el día siguiente).
   if (desde || hasta) {
-    where.paidAt = {
-      ...(desde && { gte: new Date(desde) }),
-      ...(hasta && { lte: new Date(hasta) }),
-    };
+    where.paidAt = rangoDiaClinica(desde, hasta);
   }
 
-  // Filtro por paciente o profesional (van anidados en appointment)
   if (patientId || professionalId) {
     where.appointment = {
       ...(patientId && { patientId }),
@@ -296,7 +300,6 @@ export const obtenerHistorialPagos = asyncHandler(async (req, res) => {
     orderBy: { paidAt: 'desc' },
   });
 
-  // Calcular totales del resultado
   const totalCobrado = pagos
     .filter((p) => !p.isRefund)
     .reduce((acc, p) => acc + Number(p.amount), 0);
@@ -330,23 +333,18 @@ export const eliminarPago = asyncHandler(async (req, res) => {
     return res.status(404).json({ mensaje: 'Pago no encontrado' });
   }
 
-  // Recalcular estado de pago del turno tras eliminar
   const turno = pago.appointment;
   const precioFinal =
     Number(turno.priceSnapshot) - Number(turno.discountAmount || 0);
 
   const pagosRestantes = turno.payments.filter((p) => p.id !== id);
 
-  const totalPagadoRestante = pagosRestantes
-    .filter((p) => !p.isRefund)
-    .reduce((acc, p) => acc + Number(p.amount), 0);
+  // Neto restante (descontando reembolsos) para fijar el estado correcto.
+  const netoRestante = netoPagado(pagosRestantes);
 
-  let nuevoPaymentStatus = 'PENDING';
-  if (totalPagadoRestante >= precioFinal) {
-    nuevoPaymentStatus = 'COMPLETED';
-  } else if (totalPagadoRestante > 0) {
-    nuevoPaymentStatus = 'PARTIAL';
-  }
+  let nuevoPaymentStatus = estadoSegunNeto(netoRestante, precioFinal);
+  // Si quedaron solo reembolsos (neto negativo) lo dejamos como REFUNDED.
+  if (netoRestante < 0) nuevoPaymentStatus = 'REFUNDED';
 
   await prisma.$transaction(async (tx) => {
     await tx.payment.delete({ where: { id } });

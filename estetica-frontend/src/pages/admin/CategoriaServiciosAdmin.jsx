@@ -11,8 +11,9 @@ import {
   crearCategoria,
   actualizarCategoria,
 } from "../../api/services.api";
+import {colors} from "../../theme/colors"; 
 
-const PURPLE = "#6b21a8";
+const PURPLE = colors.brand;
 
 const CategoriaServiciosAdmin = () => {
   const [categorias, setCategorias] = useState([]);
@@ -150,7 +151,7 @@ const CategoriaServiciosAdmin = () => {
       />
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <p style={{ fontSize: 12, color: "#64748b", marginTop: 0 }}>
+      <p style={{ fontSize: 12, color: colors.textSubtle, marginTop: 0 }}>
         Usá las flechas para reordenar (el orden se recalcula solo). Hacé click en una categoría para ver sus servicios.
       </p>
 
@@ -166,7 +167,7 @@ const CategoriaServiciosAdmin = () => {
                     <button type="button" onClick={() => mover(i, 1)} disabled={i === categorias.length - 1 || reordenando}
                       title="Bajar" style={arrowBtn(i === categorias.length - 1 || reordenando)}>▼</button>
                   </div>
-                  <span style={{ color: "#64748b" }}>{c.displayOrder}</span>
+                  <span style={{ color: colors.textSubtle }}>{c.displayOrder}</span>
                 </div>
               </Td>
 
@@ -180,7 +181,7 @@ const CategoriaServiciosAdmin = () => {
 
               <Td>
                 <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                  <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }}
+                  <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.textSubtle }}
                     onClick={() => abrirModalEditar(c)}>
                     Editar
                   </Button>
@@ -193,9 +194,9 @@ const CategoriaServiciosAdmin = () => {
                 <Td colSpan={4}>
                   <div style={{ padding: "6px 10px", textAlign: "left" }}>
                     {(c.services?.length ?? 0) === 0 ? (
-                      <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin servicios activos en esta categoría.</span>
+                      <span style={{ color: colors.textMuted, fontSize: 13 }}>Sin servicios activos en esta categoría.</span>
                     ) : (
-                      <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.7 }}>
+                      <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 1.7 }}>
                         {c.services.map((s) => (
                           <div key={s.id}>– {s.name}</div>
                         ))}
@@ -223,13 +224,13 @@ const CategoriaServiciosAdmin = () => {
           />
 
           {!modoEdicion && (
-            <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
+            <p style={{ fontSize: 12, color: colors.textSubtle, margin: 0 }}>
               El orden se asigna automáticamente al final. Después podés reordenar con las flechas.
             </p>
           )}
 
           <div style={{ display: "flex", gap: "10px", marginTop: "10px", justifyContent: "flex-end" }}>
-            <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }}
+            <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }}
               onClick={() => setModalFormAbierto(false)}>
               Cancelar
             </Button>
@@ -247,7 +248,7 @@ const arrowBtn = (disabled) => ({
   background: "transparent",
   border: "none",
   cursor: disabled ? "default" : "pointer",
-  color: disabled ? "#cbd5e1" : "#6b21a8",
+  color: disabled ? colors.line : colors.brand,
   fontSize: 11,
   lineHeight: 1,
   padding: "1px 2px",

@@ -1,16 +1,13 @@
+// estetica-backend/src/controllers/reports.controller.js
 import prisma from '../config/prisma.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { rangoDiaClinica } from '../utils/tiempo.js';
 
 export const reporteIngresos = asyncHandler(async (req, res) => {
   const { desde, hasta, professionalId } = req.query;
 
   const where = {
-    ...(desde || hasta ? {
-      paidAt: {
-        ...(desde && { gte: new Date(desde) }),
-        ...(hasta && { lte: new Date(hasta) }),
-      },
-    } : {}),
+    ...(desde || hasta ? { paidAt: rangoDiaClinica(desde, hasta) } : {}),
     ...(professionalId ? {
       appointment: {
         professionalService: { professionalId },
@@ -50,12 +47,7 @@ export const reporteTurnos = asyncHandler(async (req, res) => {
   const { desde, hasta, professionalId } = req.query;
 
   const where = {
-    ...(desde || hasta ? {
-      startsAt: {
-        ...(desde && { gte: new Date(desde) }),
-        ...(hasta && { lte: new Date(hasta) }),
-      },
-    } : {}),
+    ...(desde || hasta ? { startsAt: rangoDiaClinica(desde, hasta) } : {}),
     ...(professionalId ? {
       professionalService: { professionalId },
     } : {}),
@@ -79,12 +71,7 @@ export const reporteServicios = asyncHandler(async (req, res) => {
 
   const where = {
     status: { in: ['CONFIRMED', 'COMPLETED', 'IN_PROGRESS'] },
-    ...(desde || hasta ? {
-      startsAt: {
-        ...(desde && { gte: new Date(desde) }),
-        ...(hasta && { lte: new Date(hasta) }),
-      },
-    } : {}),
+    ...(desde || hasta ? { startsAt: rangoDiaClinica(desde, hasta) } : {}),
   };
 
   const turnos = await prisma.appointment.findMany({

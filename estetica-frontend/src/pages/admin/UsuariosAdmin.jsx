@@ -4,8 +4,9 @@ import { Button } from "../../components/ui/Button";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Modal } from "../../components/ui/Modal";
 import { Input } from "../../components/ui/Input";
-import { useAuth } from "../../hooks/useAuth";
 import { useBanner } from "../../components/ui/Banner";
+import client, { mensajeDeError } from "../../api/client";
+import {colors, status} from "../../theme/colors"; 
  
 const ROLES = [
   { value: "RECEPTIONIST", label: "Recepcionista" },
@@ -13,7 +14,7 @@ const ROLES = [
   { value: "PROFESSIONAL", label: "Profesional" },
 ];
 
-const selectStyle = { padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1", width: "100%" };
+const selectStyle = { padding: "10px", borderRadius: "5px", border: "1px solid colors.line", width: "100%" };
 
 const VACIO_USER = {
   nombre: "", email: "", password: "", rol: "RECEPTIONIST",
@@ -39,9 +40,7 @@ const UsuariosAdmin = () => {
   const [verificandoDoc, setVerificandoDoc] = useState(false);
   const [resultadoDoc, setResultadoDoc] = useState(null); // { existe, tieneUser, esPaciente, esProfesional, persona }
 
-  const { token } = useAuth();
   const banner = useBanner();
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
   const ordenarPorEstadoYNombre = (lista) => {
     const esActivo = (x) => Boolean(x.active ?? x.activo);
@@ -54,12 +53,10 @@ const UsuariosAdmin = () => {
 
   const obtenerUsuarios = async () => {
     try {
-      const respuesta = await fetch(`${apiUrl}/users`, { headers: { Authorization: `Bearer ${token}` } });
-      const datos = await respuesta.json();
-      if (!respuesta.ok) throw new Error(datos.error || "Error al traer usuarios");
+      const { data: datos } = await client.get("/users");
       setUsuarios(ordenarPorEstadoYNombre(datos));
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Error al traer usuarios");
     } finally {
       setCargando(false);
     }
@@ -101,18 +98,15 @@ const UsuariosAdmin = () => {
     setModalFormAbierto(true);
  
     try {
-      const res = await fetch(`${apiUrl}/users/${u.id}`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (res.ok) {
-        setFormData((f) => ({
-          ...f,
-          nombre: data.nombre ?? f.nombre,
-          email: data.email ?? f.email,
-          rol: data.rol ?? f.rol,
-          specialty: data.specialty ?? f.specialty,
-          bio: data.bio ?? f.bio,
-        }));
-      }
+      const { data } = await client.get(`/users/${u.id}`);
+      setFormData((f) => ({
+        ...f,
+        nombre: data.nombre ?? f.nombre,
+        email: data.email ?? f.email,
+        rol: data.rol ?? f.rol,
+        specialty: data.specialty ?? f.specialty,
+        bio: data.bio ?? f.bio,
+      }));
     } catch {
       /* si falla, queda lo de la fila y el usuario puede recompletar */
     }
@@ -130,10 +124,8 @@ const UsuariosAdmin = () => {
     setErrorForm("");
     setVerificandoDoc(true);
     try {
-      const q = new URLSearchParams({ documentType: formData.documentType, document: formData.document.trim() });
-      const res = await fetch(`${apiUrl}/users/check-document?${q}`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo verificar el documento");
+      const params = { documentType: formData.documentType, document: formData.document.trim() };
+      const { data } = await client.get("/users/check-document", { params });
 
       setResultadoDoc(data);
       setDocVerificado(true);
@@ -150,7 +142,7 @@ const UsuariosAdmin = () => {
         }));
       }
     } catch (err) {
-      setErrorForm(err.message);
+      setErrorForm(mensajeDeError(err) || "No se pudo verificar el documento");
     } finally {
       setVerificandoDoc(false);
     }
@@ -165,8 +157,7 @@ const UsuariosAdmin = () => {
     setErrorForm("");
     setCargandoForm(true);
     try {
-      const url = modoEdicion ? `${apiUrl}/users/${usuarioEditandoId}` : `${apiUrl}/users`;
-      const method = modoEdicion ? "PATCH" : "POST";
+      const url = modoEdicion ? `/users/${usuarioEditandoId}` : `/users`;
 
       const payload = {
         nombre: formData.nombre,
@@ -184,13 +175,11 @@ const UsuariosAdmin = () => {
         payload.confirmLink = true;
       }
 
-      const respuesta = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-      const datos = await respuesta.json().catch(() => ({}));
-      if (!respuesta.ok) throw new Error(datos.mensaje || datos.error || "Error al guardar");
+      if (modoEdicion) {
+        await client.patch(url, payload);
+      } else {
+        await client.post(url, payload);
+      }
 
       const rolLabel = ROLES.find((r) => r.value === formData.rol)?.label || formData.rol;
       banner.success(modoEdicion ? "Usuario actualizado" : "Usuario creado", {
@@ -204,7 +193,7 @@ const UsuariosAdmin = () => {
       setModalFormAbierto(false);
       obtenerUsuarios();
     } catch (err) {
-      setErrorForm(err.message);
+      setErrorForm(mensajeDeError(err) || "Error al guardar");
     } finally {
       setCargandoForm(false);
     }
@@ -219,14 +208,11 @@ const UsuariosAdmin = () => {
     try {
       const estaActivo = usuarioSeleccionado.active || usuarioSeleccionado.activo;
       const endpoint = estaActivo ? "deactivate" : "activate";
-      const respuesta = await fetch(`${apiUrl}/users/${usuarioSeleccionado.id}/${endpoint}`, {
-        method: "PATCH", headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!respuesta.ok) throw new Error(`No se pudo ${estaActivo ? "desactivar" : "activar"} al usuario`);
+      await client.patch(`/users/${usuarioSeleccionado.id}/${endpoint}`);
       setModalEstadoAbierto(false);
       obtenerUsuarios();
     } catch (err) {
-      alert(err.message);
+      alert(mensajeDeError(err) || "No se pudo cambiar el estado del usuario");
     }
   };
 
@@ -244,31 +230,31 @@ const UsuariosAdmin = () => {
         actions={<Button onClick={abrirModalCrear}>+ Nuevo Usuario</Button>}
       />
 
-      {error && <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ background: status.error.bg, border: "1px solid status.error.border", color: status.error.fg, borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
       <Table headers={["Nombre", "Email", "Rol", "Estado", "Acciones"]}>
         {usuarios.map((u) => {
           const estaActivo = u.active || u.activo;
           return (
-            <Tr key={u.id} style={!estaActivo ? { backgroundColor: "#f1f5f9", color: "#94a3b8" } : undefined}>
+            <Tr key={u.id} style={!estaActivo ? { backgroundColor: colors.borderSoft, color: colors.textMuted } : undefined}>
               <Td>{u.nombre || u.person?.name || u.name}</Td>
               <Td>{u.email || u.person?.email}</Td>
               <Td>
-                <span style={{ padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", backgroundColor: "#6b21a815", color: "#6b21a8" }}>
+                <span style={{ padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", backgroundColor: "colors.brand15", color: colors.brand }}>
                   {u.rol || u.role}
                 </span>
               </Td>
               <Td>
-                <span style={{ color: estaActivo ? "#16a34a" : "#d32f2f", fontWeight: "bold" }}>
+                <span style={{ color: estaActivo ? status.success.strong : status.error.strong, fontWeight: "bold" }}>
                   {estaActivo ? "● Activo" : "○ Inactivo"}
                 </span>
               </Td>
               <Td>
                 <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                  <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }} onClick={() => abrirModalEditar(u)}>Editar</Button>
+                  <Button style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: colors.textSubtle }} onClick={() => abrirModalEditar(u)}>Editar</Button>
                   <Button
                     variant={estaActivo ? "danger" : "primary"}
-                    style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: estaActivo ? "#d32f2f" : "#16a34a", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                    style={{ padding: "6px 12px", fontSize: "12px", backgroundColor: estaActivo ? status.error.strong : status.success.strong, color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}
                     onClick={() => confirmarCambioEstado(u)}
                   >
                     {estaActivo ? "Desactivar" : "Activar"}
@@ -284,8 +270,8 @@ const UsuariosAdmin = () => {
         <form autoComplete="off" onSubmit={manejarGuardado} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
  
           {!modoEdicion && (
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px" }}>
-              <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6 }}>
+            <div style={{ background: colors.bg, border: "1px solid colors.border", borderRadius: 8, padding: "12px 14px" }}>
+              <label style={{ fontSize: 12, color: colors.textSubtle, display: "block", marginBottom: 6 }}>
                 1 · Documento de la persona
               </label>
               <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
@@ -312,25 +298,25 @@ const UsuariosAdmin = () => {
               {docVerificado && resultadoDoc && (
                 <div style={{ marginTop: 10, fontSize: 13 }}>
                   {bloqueadoPorUser ? (
-                    <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ background: status.error.bg, border: "1px solid status.error.border", color: status.error.fg, borderRadius: 8, padding: "10px 12px" }}>
                       <strong>{resultadoDoc.persona?.name}</strong> ya tiene un usuario asociado. No se puede crear otro con el mismo documento. Si necesitás cambiar sus datos, editá ese usuario desde la lista.
                     </div>
                   ) : resultadoDoc.existe ? (
-                    <div style={{ background: "#fef9c3", border: "1px solid #fde047", color: "#854d0e", borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ background: status.warning.soft, border: "1px solid #fde047", color: status.warning.fg, borderRadius: 8, padding: "10px 12px" }}>
                       Encontramos a <strong>{resultadoDoc.persona?.name}</strong> ({resultadoDoc.persona?.email || "sin email"})
                       {resultadoDoc.esPaciente ? " · es paciente" : ""}
                       {resultadoDoc.esProfesional ? " · ya tiene ficha de profesional" : ""}.
                       <br />Le vamos a crear el acceso. Completá lo que falta.
                     </div>
                   ) : (
-                    <div style={{ background: "#f0fdf4", border: "1px solid #86efac", color: "#166534", borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ background: "#f0fdf4", border: "1px solid #86efac", color: status.success.fg, borderRadius: 8, padding: "10px 12px" }}>
                       Documento libre. Completá los datos del nuevo usuario.
                     </div>
                   )}
                 </div>
               )}
               {!docVerificado && (
-                <div style={{ marginTop: 8, fontSize: 12, color: "#94a3b8" }}>
+                <div style={{ marginTop: 8, fontSize: 12, color: colors.textMuted }}>
                   Verificá el documento para continuar con el alta.
                 </div>
               )}
@@ -338,14 +324,14 @@ const UsuariosAdmin = () => {
           )}
 
           {errorForm && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}>
+            <div style={{ background: status.error.bg, border: "1px solid status.error.border", color: status.error.fg, borderRadius: 8, padding: "8px 12px", fontSize: 13 }}>
               {errorForm}
             </div>
           )} 
           {puedeCompletar && (
             <>
               {!modoEdicion && (
-                <label style={{ fontSize: 12, color: "#64748b", marginBottom: -6 }}>2 · Datos del usuario</label>
+                <label style={{ fontSize: 12, color: colors.textSubtle, marginBottom: -6 }}>2 · Datos del usuario</label>
               )}
               <Input type="text" placeholder="Nombre completo" autoComplete="off" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} required />
               <Input type="email" placeholder="Email" autoComplete="new-email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
@@ -356,18 +342,18 @@ const UsuariosAdmin = () => {
               </select>
  
               {esProfesional && (
-                <div style={{ background: "#f8f4ff", border: "1px solid #e9d5ff", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ fontSize: 12, color: "#6b21a8", fontWeight: "bold" }}>Ficha de profesional</div>
+                <div style={{ background: "#f8f4ff", border: "1px solid colors.brandTintLight", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ fontSize: 12, color: colors.brand, fontWeight: "bold" }}>Ficha de profesional</div>
                   <Input type="text" placeholder="Especialidad (ej. Cosmetología)" autoComplete="off" value={formData.specialty} onChange={(e) => setFormData({ ...formData, specialty: e.target.value })} required />
                   <textarea
                     placeholder="Bio (opcional)"
                     value={formData.bio}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     rows={3}
-                    style={{ padding: "10px", borderRadius: "5px", border: "1px solid #cbd5e1", fontFamily: "inherit", fontSize: 14, resize: "vertical" }}
+                    style={{ padding: "10px", borderRadius: "5px", border: "1px solid colors.line", fontFamily: "inherit", fontSize: 14, resize: "vertical" }}
                   />
                   {resultadoDoc?.esProfesional && (
-                    <div style={{ fontSize: 12, color: "#7c3aed" }}>
+                    <div style={{ fontSize: 12, color: colors.brand }}>
                       Esta persona ya tiene ficha de profesional: se vincula a la existente.
                     </div>
                   )}
@@ -377,7 +363,7 @@ const UsuariosAdmin = () => {
           )}
 
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: 4 }}>
-            <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setModalFormAbierto(false)}>Cancelar</Button>
+            <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setModalFormAbierto(false)}>Cancelar</Button>
             <Button type="submit" disabled={!puedeCompletar || cargandoForm}>
               {cargandoForm ? "Guardando..." : "Guardar"}
             </Button>
@@ -388,7 +374,7 @@ const UsuariosAdmin = () => {
       <Modal isOpen={modalEstadoAbierto} onClose={() => setModalEstadoAbierto(false)} title="Confirmar Acción">
         <p>¿Seguro que deseas {usuarioSeleccionado?.active || usuarioSeleccionado?.activo ? "desactivar" : "activar"} a {usuarioSeleccionado?.nombre || usuarioSeleccionado?.person?.name}?</p>
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
-          <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setModalEstadoAbierto(false)}>Cancelar</Button>
+          <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setModalEstadoAbierto(false)}>Cancelar</Button>
           <Button variant={usuarioSeleccionado?.active || usuarioSeleccionado?.activo ? "danger" : "primary"} onClick={ejecutarCambioEstado}>
             Sí, {usuarioSeleccionado?.active || usuarioSeleccionado?.activo ? "desactivar" : "activar"}
           </Button>

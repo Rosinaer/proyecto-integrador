@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
 import { Select } from "../../components/ui/Select";
-import { useAuth } from "../../hooks/useAuth";
 import { GestionServiciosProfesional } from "../../components/GestionServiciosProfesional";
 import { PageHeader } from "../../components/ui/PageHeader";
-import axios from "axios";
+import client, { mensajeDeError } from "../../api/client";
+import {colors} from "../../theme/colors"; 
 
-const BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}`;
-
-const obtenerProfesionales = async (token) => {
-  const res = await axios.get(`${BASE}/professionals`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+const obtenerProfesionales = async () => {
+  const res = await client.get("/professionals");
   return res.data;
 };
 
@@ -20,27 +16,23 @@ const ProfessionalServicesAdmin = () => {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
 
-  const { token } = useAuth();
-
   const cargarProfesionales = async () => {
     try {
-      const data = await obtenerProfesionales(token);
+      const data = await obtenerProfesionales();
       setProfesionales(data);
       if (data.length > 0) {
         setProfesionalSeleccionadoId(data[0].id);
       }
     } catch (err) {
-      setError(err.response?.data?.mensaje || err.message);
+      setError(mensajeDeError(err));
     } finally {
       setCargando(false);
     }
   };
 
   useEffect(() => {
-    if (token) {
-      cargarProfesionales();
-    }
-  }, [token]);
+    cargarProfesionales();
+  }, []);
 
   if (cargando) {
     return (
@@ -53,9 +45,9 @@ const ProfessionalServicesAdmin = () => {
   return (
     <div>
       <PageHeader title="Servicios por Profesional" />
- 
+
       <div style={{ maxWidth: "360px", marginBottom: "24px" }}>
-        <label style={{ display: "block", fontSize: "13px", color: "#64748b", marginBottom: "6px" }}>
+        <label style={{ display: "block", fontSize: "13px", color: colors.textSubtle, marginBottom: "6px" }}>
           Profesional
         </label>
         <Select
@@ -71,10 +63,7 @@ const ProfessionalServicesAdmin = () => {
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       {profesionalSeleccionadoId && (
-        <GestionServiciosProfesional
-          professionalId={profesionalSeleccionadoId}
-          token={token}
-        />
+        <GestionServiciosProfesional professionalId={profesionalSeleccionadoId} />
       )}
     </div>
   );

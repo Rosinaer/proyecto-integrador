@@ -5,6 +5,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { GestionServiciosProfesional } from "../../components/GestionServiciosProfesional";
 import { GestionHorariosRecurrentes } from "../../components/GestionHorariosRecurrentes";
 import { PageHeader } from "../../components/ui/PageHeader";
+import client, { mensajeDeError } from "../../api/client";
+import {colors, status} from "../../theme/colors"; 
 
 const FichaProfesionalAdmin = () => {
   const { id } = useParams();
@@ -15,18 +17,12 @@ const FichaProfesionalAdmin = () => {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
 
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
   const cargarDatos = async () => {
     try {
-      const respuesta = await fetch(`${apiUrl}/professionals/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const datos = await respuesta.json();
-      if (!respuesta.ok) throw new Error(datos.mensaje || datos.error || "Error al traer el profesional");
+      const { data: datos } = await client.get(`/professionals/${id}`);
       setProfesional(datos);
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Error al traer el profesional");
     } finally {
       setCargando(false);
     }
@@ -49,7 +45,7 @@ const FichaProfesionalAdmin = () => {
   return (
     <div>
       <Button
-        style={{ backgroundColor: "#e2e8f0", color: "#475569", marginBottom: "20px" }}
+        style={{ backgroundColor: colors.border, color: colors.textSecondary, marginBottom: "20px" }}
         onClick={() => navigate("/admin/profesionales")}
       >
         ← Volver
@@ -59,7 +55,7 @@ const FichaProfesionalAdmin = () => {
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             Ficha de {profesional?.person?.name}
-            <span style={{ color: profesional?.active ? "#16a34a" : "#d32f2f", fontWeight: "bold", fontSize: "14px" }}>
+            <span style={{ color: profesional?.active ? status.success.strong : status.error.strong, fontWeight: "bold", fontSize: "14px" }}>
               {profesional?.active ? "● Activo" : "○ Inactivo"}
             </span>
           </span>
@@ -68,14 +64,14 @@ const FichaProfesionalAdmin = () => {
 
       <div
         style={{
-          backgroundColor: "#f8fafc",
-          border: "1px solid #e2e8f0",
+          backgroundColor: colors.bg,
+          border: "1px solid colors.border",
           borderRadius: "8px",
           padding: "20px",
           marginBottom: "30px",
         }}
       >
-        <h3 style={{ color: "#475569", marginBottom: "15px" }}>Datos personales</h3>
+        <h3 style={{ color: colors.textSecondary, marginBottom: "15px" }}>Datos personales</h3>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "14px" }}>
           <p><strong>Nombre:</strong> {profesional?.person?.name}</p>
@@ -91,22 +87,22 @@ const FichaProfesionalAdmin = () => {
             style={{
               marginTop: "15px",
               backgroundColor: "#f8f4ff",
-              border: "1px solid #e9d5ff",
+              border: "1px solid colors.brandTintLight",
               borderRadius: "6px",
               padding: "12px",
             }}
           >
-            <strong style={{ color: "#6b21a8" }}>Bio:</strong>
-            <p style={{ marginTop: "5px", color: "#475569", fontSize: "14px" }}>{profesional.bio}</p>
+            <strong style={{ color: colors.brand }}>Bio:</strong>
+            <p style={{ marginTop: "5px", color: colors.textSecondary, fontSize: "14px" }}>{profesional.bio}</p>
           </div>
         )}
       </div>
  
       <div style={{ marginBottom: "30px" }}>
-        <GestionServiciosProfesional professionalId={id} token={token} />
+        <GestionServiciosProfesional professionalId={id} />
       </div>
  
-      <GestionHorariosRecurrentes professionalId={id} token={token} />
+      <GestionHorariosRecurrentes professionalId={id} />
     </div>
   );
 };

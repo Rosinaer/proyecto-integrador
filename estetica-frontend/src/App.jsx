@@ -26,6 +26,7 @@ import FichaProfesionalAdmin from "./pages/admin/FichaProfesionalAdmin";
 import ReportesAdmin from "./pages/admin/ReportesAdmin";
 import ReservaTurno from "./pages/admin/ReservaTurno";
 import ReprogramarAdmin from "./pages/admin/ReprogramarAdmin";
+import CobrosAdmin from "./pages/admin/CobrosAdmin";
 
 
 
@@ -82,6 +83,7 @@ function App() {
           <Route path="profesionales/:id" element={<Pagina pagina="fichaProfesional"><FichaProfesionalAdmin /></Pagina>} />
           <Route path="reserva-turno" element={<Pagina pagina="reservaTurno"><ReservaTurno /></Pagina>} />
           <Route path="reprogramar" element={<Pagina pagina="reprogramar"><ReprogramarAdmin /></Pagina>} />
+          <Route path="cobros" element={<Pagina pagina="cobros"><CobrosAdmin /></Pagina>} />
         </Route>
 
       </Routes>

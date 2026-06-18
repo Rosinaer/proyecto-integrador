@@ -6,6 +6,8 @@ import { PacienteFormModal } from "../../components/PacienteFormModal";
 import { useBanner } from "../../components/ui/Banner";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { fmtHora, fmtFechaLargaISO, ymdDeInstante, instanteParaApi, LECTURA_TZ } from "../../utils/fecha";
+import client, { mensajeDeError } from "../../api/client";
+import {colors, status} from "../../theme/colors"; 
  
 const pacienteLabel = (p) => {
   if (!p) return "";
@@ -14,12 +16,12 @@ const pacienteLabel = (p) => {
   return [per.name, doc, per.email].filter(Boolean).join(" · ");
 }; 
 
-const PURPLE = "#6b21a8";
+const PURPLE = colors.brand;
 const PURPLE_BG = "#f3e8ff";
-const BORDER = "#cbd5e1";
-const WARN_BG = "#fef9c3";
-const WARN_TX = "#854d0e";
-const MUTED = "#94a3b8";
+const BORDER = colors.line;
+const WARN_BG = status.warning.soft;
+const WARN_TX = status.warning.fg;
+const MUTED = colors.textMuted;
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -71,7 +73,7 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
                 padding: "5px 0", borderRadius: 6, border: "none", fontSize: 12,
                 cursor: disp ? "pointer" : "default",
                 background: sel ? PURPLE : disp ? PURPLE_BG : "transparent",
-                color: sel ? "#fff" : disp ? PURPLE : "#cbd5e1",
+                color: sel ? "#fff" : disp ? PURPLE : colors.line,
                 fontWeight: disp ? "bold" : "normal",
               }}
             >
@@ -85,13 +87,10 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
 }
 
 export default function ReservaTurno({ onCreated, embedded = false }) {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const banner = useBanner();
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-  const headers = { Authorization: `Bearer ${token}` };
-  const jsonHeaders = { "Content-Type": "application/json", ...headers };
  
   const esProfesional = user?.role === "PROFESSIONAL";
   const miProfId = user?.professionalId || "";
@@ -146,11 +145,11 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     (async () => {
       try {
         const [rp, rs] = await Promise.all([
-          fetch(`${apiUrl}/professionals`, { headers }),
-          fetch(`${apiUrl}/services?active=true`, { headers }),
+          client.get("/professionals"),
+          client.get("/services", { params: { active: true } }),
         ]);
-        setProfesionales(await rp.json());
-        setServicios(await rs.json());
+        setProfesionales(rp.data);
+        setServicios(rs.data);
       } catch {
         setError("No se pudieron cargar profesionales o servicios.");
       }
@@ -169,9 +168,12 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     setElegidos([]);
     if (!profSel) { setServiciosProf([]); return; }
     (async () => {
-      const res = await fetch(`${apiUrl}/professionals/${profSel}`, { headers });
-      const data = await res.json();
-      setServiciosProf(data.services || []);
+      try {
+        const { data } = await client.get(`/professionals/${profSel}`);
+        setServiciosProf(data.services || []);
+      } catch {
+        setServiciosProf([]);
+      }
     })();
   }, [profSel]);
  
@@ -183,10 +185,14 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     (async () => {
       setCargandoOpciones(true);
       try {
-        const res = await fetch(`${apiUrl}/appointments/service-options?serviceId=${servSel}`, { headers });
-        const data = await res.json();
+        const { data } = await client.get("/appointments/service-options", {
+          params: { serviceId: servSel },
+        });
         setOpciones(data.options || []);
         setServInfo(data.service || null);
+      } catch {
+        setOpciones([]);
+        setServInfo(null);
       } finally {
         setCargandoOpciones(false);
       }
@@ -224,10 +230,19 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     setDiaSel(""); setSlots([]); setSlotSel(null); setAvailabilityId("");
     if (sobreturno || !ctxKey) { setDias([]); return; }
     (async () => {
-      const q = `professionalId=${contexto.professionalId}&serviceIds=${contexto.serviceIds.join(",")}&year=${verMes.year}&month=${verMes.month}`;
-      const res = await fetch(`${apiUrl}/appointments/available-days?${q}`, { headers });
-      const data = await res.json();
-      setDias(data.days || []);
+      try {
+        const { data } = await client.get("/appointments/available-days", {
+          params: {
+            professionalId: contexto.professionalId,
+            serviceIds: contexto.serviceIds.join(","),
+            year: verMes.year,
+            month: verMes.month,
+          },
+        });
+        setDias(data.days || []);
+      } catch {
+        setDias([]);
+      }
     })();
   }, [ctxKey, verMes.year, verMes.month, sobreturno]);
  
@@ -235,11 +250,20 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     setSlots([]); setSlotSel(null);
     if (sobreturno || !ctxKey || !diaSel) return;
     (async () => {
-      const q = `professionalId=${contexto.professionalId}&serviceIds=${contexto.serviceIds.join(",")}&date=${diaSel}`;
-      const res = await fetch(`${apiUrl}/appointments/available-slots?${q}`, { headers });
-      const data = await res.json();
-      setSlots(data.slots || []);
-      setAvailabilityId(data.availabilityId || "");
+      try {
+        const { data } = await client.get("/appointments/available-slots", {
+          params: {
+            professionalId: contexto.professionalId,
+            serviceIds: contexto.serviceIds.join(","),
+            date: diaSel,
+          },
+        });
+        setSlots(data.slots || []);
+        setAvailabilityId(data.availabilityId || "");
+      } catch {
+        setSlots([]);
+        setAvailabilityId("");
+      }
     })();
   }, [diaSel]);
  
@@ -248,8 +272,9 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     setPacBuscado(false);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`${apiUrl}/patients?search=${encodeURIComponent(pacQuery)}`, { headers });
-        const data = await res.json();
+        const { data } = await client.get("/patients", {
+          params: { search: pacQuery },
+        });
         setPacientes(Array.isArray(data) ? data : []);
       } catch {
         setPacientes([]);
@@ -293,24 +318,20 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
     setGuardando(true);
     try {
       let startsAtISO;
-      let res;
 
       if (sobreturno) {
         startsAtISO = instanteParaApi(stFecha, stHora);
         const payload = { patientId: pacSel, startsAt: startsAtISO, ...(notas ? { notes: notas } : {}) };
         if (contexto.professionalServiceIds.length > 1) payload.professionalServiceIds = contexto.professionalServiceIds;
         else payload.professionalServiceId = contexto.professionalServiceIds[0];
-        res = await fetch(`${apiUrl}/appointments/overbook`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
+        await client.post("/appointments/overbook", payload);
       } else {
         startsAtISO = slotSel.startsAt;
         const payload = { availabilityId: availabilityId || slotSel.availabilityId, patientId: pacSel, startsAt: slotSel.startsAt, ...(notas ? { notes: notas } : {}) };
         if (contexto.professionalServiceIds.length > 1) payload.professionalServiceIds = contexto.professionalServiceIds;
         else payload.professionalServiceId = contexto.professionalServiceIds[0];
-        res = await fetch(`${apiUrl}/appointments`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) });
+        await client.post("/appointments", payload);
       }
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo crear el turno");
 
       const profNombre = modo === "profesional"
         ? (profesionales.find((p) => p.id === profSel)?.person?.name || "—")
@@ -348,7 +369,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
 
       onCreated?.();
     } catch (e) {
-      setError(e.message);
+      setError(mensajeDeError(e) || "No se pudo crear el turno");
     } finally {
       setGuardando(false);
     }
@@ -428,9 +449,9 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                     const on = elegidos.includes(s.serviceId);
                     return (
                       <div key={s.id} onClick={() => toggleServicio(s.serviceId)}
-                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", cursor: "pointer", background: on ? PURPLE_BG : "#fff", borderBottom: `1px solid #f1f5f9` }}>
-                        <span style={{ fontSize: 13, color: on ? PURPLE : "#334155" }}>{on ? "☑" : "☐"} {s.service?.name}</span>
-                        <span style={{ fontSize: 11, color: "#64748b" }}>{s.durationMinutes} min · {fmtPrecio(s.price)}</span>
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", cursor: "pointer", background: on ? PURPLE_BG : "#fff", borderBottom: `1px solid colors.borderSoft` }}>
+                        <span style={{ fontSize: 13, color: on ? PURPLE : colors.text }}>{on ? "☑" : "☐"} {s.service?.name}</span>
+                        <span style={{ fontSize: 11, color: colors.textSubtle }}>{s.durationMinutes} min · {fmtPrecio(s.price)}</span>
                       </div>
                     );
                   })}
@@ -460,9 +481,9 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                     return (
                       <div key={op.professionalServiceId}
                         onClick={() => clickable && elegirOpcion(op)}
-                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", cursor: clickable ? "pointer" : "default", opacity: clickable ? 1 : 0.55, background: on ? PURPLE_BG : "#fff", borderBottom: `1px solid #f1f5f9` }}>
-                        <span style={{ fontSize: 13, color: on ? PURPLE : "#334155" }}>{on ? "◉" : "○"} {op.professionalName}</span>
-                        <span style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", cursor: clickable ? "pointer" : "default", opacity: clickable ? 1 : 0.55, background: on ? PURPLE_BG : "#fff", borderBottom: `1px solid colors.borderSoft` }}>
+                        <span style={{ fontSize: 13, color: on ? PURPLE : colors.text }}>{on ? "◉" : "○"} {op.professionalName}</span>
+                        <span style={{ fontSize: 11, color: colors.textSubtle, textAlign: "right" }}>
                           {op.durationMinutes} min · {fmtPrecio(op.price)}<br />
                           <span style={{ color: MUTED }}>{sinTurno ? (sobreturno ? "elegible (sobreturno)" : "sin turnos próximos") : `1er turno: ${fmtFechaCorta(op.nextSlot.startsAt)}`}</span>
                         </span>
@@ -476,8 +497,8 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
  
           {contexto && (
             <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: "#fff" }}>
-              <div style={resRow}><span style={{ color: "#64748b" }}>Duración{contexto.serviceIds.length > 1 ? " total" : ""}</span><strong>{contexto.duration} min</strong></div>
-              <div style={resRow}><span style={{ color: "#64748b" }}>Precio{contexto.serviceIds.length > 1 ? " total" : ""}</span><strong>{fmtPrecio(contexto.price)}</strong></div>
+              <div style={resRow}><span style={{ color: colors.textSubtle }}>Duración{contexto.serviceIds.length > 1 ? " total" : ""}</span><strong>{contexto.duration} min</strong></div>
+              <div style={resRow}><span style={{ color: colors.textSubtle }}>Precio{contexto.serviceIds.length > 1 ? " total" : ""}</span><strong>{fmtPrecio(contexto.price)}</strong></div>
             </div>
           )}
 
@@ -551,7 +572,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                         const on = slotSel?.startsAt === s.startsAt;
                         return (
                           <button key={i} type="button" onClick={() => setSlotSel(s)}
-                            style={{ fontSize: 13, padding: "6px 12px", borderRadius: 8, cursor: "pointer", border: on ? `2px solid ${PURPLE}` : `1px solid ${BORDER}`, background: on ? PURPLE_BG : "#fff", color: on ? PURPLE : "#334155" }}>
+                            style={{ fontSize: 13, padding: "6px 12px", borderRadius: 8, cursor: "pointer", border: on ? `2px solid ${PURPLE}` : `1px solid ${BORDER}`, background: on ? PURPLE_BG : "#fff", color: on ? PURPLE : colors.text }}>
                             {fmtHora(s.startsAt)}
                           </button>
                         );
@@ -576,8 +597,8 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
                   <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "#fff" }}>
                     {pacientes.map((p) => (
                       <div key={p.id} onClick={() => { setPacSel(p.id); setPacQuery(pacienteLabel(p)); setPacientes([]); }}
-                        style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f1f5f9" }}>
-                        <strong style={{ color: "#334155" }}>{p.person?.name}</strong>
+                        style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid colors.borderSoft" }}>
+                        <strong style={{ color: colors.text }}>{p.person?.name}</strong>
                         <div style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>
                           {p.person?.documentType} {p.person?.document}
                           {p.person?.email ? ` · ${p.person.email}` : ""}
@@ -618,7 +639,6 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
       <PacienteFormModal
         isOpen={modalPacAbierto}
         onClose={() => setModalPacAbierto(false)}
-        token={token}
         initialName={pacQuery}
         onSaved={onPacienteGuardado}
       />
@@ -626,7 +646,7 @@ export default function ReservaTurno({ onCreated, embedded = false }) {
   );
 }
  
-const lbl = { fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 };
+const lbl = { fontSize: 12, color: colors.textSubtle, display: "block", marginBottom: 4 };
 const sel = { width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 14 };
 const vacio = { padding: "12px", fontSize: 12, color: MUTED };
 const resRow = { display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 };

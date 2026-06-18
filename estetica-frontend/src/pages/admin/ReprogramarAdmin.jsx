@@ -5,13 +5,15 @@ import { useAuth } from "../../hooks/useAuth";
 import { useBanner } from "../../components/ui/Banner";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { LECTURA_TZ, ymdDeInstante } from "../../utils/fecha";
+import client, { mensajeDeError } from "../../api/client";
+import { moneda } from "../../utils/moneda";
+import {colors, status} from "../../theme/colors"; 
 
-const PURPLE = "#6b21a8";
+const PURPLE = colors.brand;
 const PURPLE_BG = "#f3e8ff";
-const BORDER = "#cbd5e1";
-const MUTED = "#94a3b8";
+const BORDER = colors.line;
+const MUTED = colors.textMuted;
 
-const moneda = (v) => Number(v || 0).toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 const pagadoDe = (t) => (Array.isArray(t?.payments) ? t.payments : []).reduce((a, p) => a + (p.isRefund ? -1 : 1) * Number(p.amount), 0);
 const PAGO_LBL = { PENDING: "Pendiente", PARTIAL: "Parcial", COMPLETED: "Pagado", REFUNDED: "Reembolsado" };
 
@@ -49,7 +51,7 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
           return (
             <button key={i} type="button" disabled={!disp} onClick={() => onPick(fecha)}
               style={{ padding: "5px 0", borderRadius: 6, border: "none", fontSize: 12, cursor: disp ? "pointer" : "default",
-                background: sel ? PURPLE : disp ? PURPLE_BG : "transparent", color: sel ? "#fff" : disp ? PURPLE : "#cbd5e1", fontWeight: disp ? "bold" : "normal" }}>
+                background: sel ? PURPLE : disp ? PURPLE_BG : "transparent", color: sel ? "#fff" : disp ? PURPLE : colors.line, fontWeight: disp ? "bold" : "normal" }}>
               {d}
             </button>
           );
@@ -59,11 +61,7 @@ function MiniCalendario({ year, month, dias, diaSel, onPick, onNav }) {
   );
 }
  
-function ReprogramarModal({ turno, token, onClose, onDone }) {
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-  const headers = { Authorization: `Bearer ${token}` };
-  const jsonHeaders = { "Content-Type": "application/json", ...headers };
-
+function ReprogramarModal({ turno, onClose, onDone }) {
   const profId = turno.professionalService?.professional?.id;
   const servId = turno.professionalService?.service?.id;
   const duracion = turno.professionalService?.durationMinutes;
@@ -82,10 +80,14 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
     setDiaSel(""); setSlots([]); setSlotSel(null); setAvailabilityId("");
     if (!profId || !servId) return;
     (async () => {
-      const q = `professionalId=${profId}&serviceIds=${servId}&year=${verMes.year}&month=${verMes.month}`;
-      const res = await fetch(`${API}/appointments/available-days?${q}`, { headers });
-      const data = await res.json();
-      setDias(data.days || []);
+      try {
+        const { data } = await client.get("/appointments/available-days", {
+          params: { professionalId: profId, serviceIds: servId, year: verMes.year, month: verMes.month },
+        });
+        setDias(data.days || []);
+      } catch {
+        setDias([]);
+      }
     })();
   }, [verMes.year, verMes.month]);
  
@@ -93,11 +95,16 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
     setSlots([]); setSlotSel(null);
     if (!diaSel) return;
     (async () => {
-      const q = `professionalId=${profId}&serviceIds=${servId}&date=${diaSel}`;
-      const res = await fetch(`${API}/appointments/available-slots?${q}`, { headers });
-      const data = await res.json();
-      setSlots(data.slots || []);
-      setAvailabilityId(data.availabilityId || "");
+      try {
+        const { data } = await client.get("/appointments/available-slots", {
+          params: { professionalId: profId, serviceIds: servId, date: diaSel },
+        });
+        setSlots(data.slots || []);
+        setAvailabilityId(data.availabilityId || "");
+      } catch {
+        setSlots([]);
+        setAvailabilityId("");
+      }
     })();
   }, [diaSel]);
 
@@ -106,13 +113,10 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
     if (!slotSel) return;
     setGuardando(true);
     try {
-      const res = await fetch(`${API}/appointments/${turno.id}/reschedule`, {
-        method: "PATCH",
-        headers: jsonHeaders,
-        body: JSON.stringify({ availabilityId: availabilityId || slotSel.availabilityId, startsAt: slotSel.startsAt }),
+      await client.patch(`/appointments/${turno.id}/reschedule`, {
+        availabilityId: availabilityId || slotSel.availabilityId,
+        startsAt: slotSel.startsAt,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo reprogramar");
       onDone({
         startsAt: slotSel.startsAt,
         paciente: turno.patient?.person?.name || "—",
@@ -124,7 +128,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
         pagado: pagadoDe(turno),
       });
     } catch (e) {
-      setError(e.message);
+      setError(mensajeDeError(e) || "No se pudo reprogramar");
     } finally {
       setGuardando(false);
     }
@@ -132,7 +136,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
 
   return (
     <Modal isOpen onClose={onClose} title="Reprogramar turno">
-      <div style={{ fontSize: 13, color: "#475569", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
         <strong>{turno.patient?.person?.name}</strong> · {turno.professionalService?.service?.name} con {turno.professionalService?.professional?.person?.name}
         <br />
         <span style={{ color: MUTED }}>Venía de: {fmtFecha(turno.startsAt)} {fmtHora(turno.startsAt)} · {duracion} min</span>
@@ -157,7 +161,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
           const on = slotSel?.startsAt === s.startsAt;
           return (
             <button key={i} type="button" onClick={() => setSlotSel(s)}
-              style={{ fontSize: 13, padding: "6px 12px", borderRadius: 8, cursor: "pointer", border: on ? `2px solid ${PURPLE}` : `1px solid ${BORDER}`, background: on ? PURPLE_BG : "#fff", color: on ? PURPLE : "#334155" }}>
+              style={{ fontSize: 13, padding: "6px 12px", borderRadius: 8, cursor: "pointer", border: on ? `2px solid ${PURPLE}` : `1px solid ${BORDER}`, background: on ? PURPLE_BG : "#fff", color: on ? PURPLE : colors.text }}>
               {fmtHora(s.startsAt)}
             </button>
           );
@@ -167,7 +171,7 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
       {error && <div style={{ color: "#b91c1c", fontSize: 13, marginTop: 10 }}>{error}</div>}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-        <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={onClose}>Cancelar</Button>
+        <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={onClose}>Cancelar</Button>
         <Button onClick={confirmar} disabled={!slotSel || guardando}>
           {guardando ? "Reprogramando…" : "Confirmar nuevo horario"}
         </Button>
@@ -179,9 +183,6 @@ function ReprogramarModal({ turno, token, onClose, onDone }) {
 export default function ReprogramarAdmin() {
   const { token } = useAuth();
   const banner = useBanner();
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-  const headers = { Authorization: `Bearer ${token}` };
-  const jsonHeaders = { "Content-Type": "application/json", ...headers };
 
   const [turnos, setTurnos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -194,8 +195,7 @@ export default function ReprogramarAdmin() {
     if (!token) return;
     setCargando(true);
     try {
-      const res = await fetch(`${API}/appointments?needsReschedule=true`, { headers });
-      const data = await res.json();
+      const { data } = await client.get("/appointments", { params: { needsReschedule: true } });
       setTurnos(Array.isArray(data) ? data : []);
     } catch {
       setTurnos([]);
@@ -213,11 +213,7 @@ export default function ReprogramarAdmin() {
     const t = cancelar;
     const pagado = pagadoDe(t);
     try {
-      const res = await fetch(`${API}/appointments/${t.id}/status`, {
-        method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ status: "CANCELLED" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "No se pudo cancelar");
+      await client.patch(`/appointments/${t.id}/status`, { status: "CANCELLED" });
       setCancelar(null);
       await cargar();
       window.dispatchEvent(new Event("senda:appointments-changed"));
@@ -233,9 +229,9 @@ export default function ReprogramarAdmin() {
         warnings: pagado > 0 ? [`Este turno tenía ${moneda(pagado)} pagado. El reembolso se gestiona desde la pestaña Turnos.`] : [],
       });
     } catch (e) {
-      setError(e.message);
+      setError(mensajeDeError(e) || "No se pudo cancelar");
       setCancelar(null);
-      banner.error(e.message);
+      banner.error(mensajeDeError(e) || "No se pudo cancelar");
     } finally {
       setAccionando(false);
     }
@@ -248,29 +244,29 @@ export default function ReprogramarAdmin() {
         subtitle="Turnos que quedaron sin agenda (su slot fue archivado). Reprogramalos a un nuevo horario o cancelalos."
       />
 
-      {error && <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ background: status.error.bg, border: "1px solid status.error.border", color: status.error.fg, borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
       {cargando ? (
         <p style={{ color: MUTED, textAlign: "center", padding: "40px 0" }}>Cargando…</p>
       ) : turnos.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, color: MUTED }}>
+        <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", border: "1px solid colors.border", borderRadius: 10, color: MUTED }}>
           <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>✅</div>
           No hay turnos pendientes de reprogramar.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {turnos.map((t) => (
-            <div key={t.id} style={{ background: "#fff", border: "1px solid #e2e8f0", borderLeft: "4px solid #f59e0b", borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div key={t.id} style={{ background: "#fff", border: "1px solid colors.border", borderLeft: "4px solid #f59e0b", borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ fontSize: 14 }}>
-                <strong style={{ color: "#334155" }}>{t.patient?.person?.name || "—"}</strong>
+                <strong style={{ color: colors.text }}>{t.patient?.person?.name || "—"}</strong>
                 <span style={{ color: MUTED }}> · {t.professionalService?.service?.name} con {t.professionalService?.professional?.person?.name}</span>
                 <div style={{ fontSize: 12, color: MUTED, marginTop: 4, textTransform: "capitalize" }}>
                   Era: {fmtFechaLarga(t.startsAt)} a las {fmtHora(t.startsAt)}
                   {t.rescheduleRequestedAt && <span> · pendiente desde {fmtFecha(t.rescheduleRequestedAt)}</span>}
                 </div>
-                <div style={{ fontSize: 12, color: "#475569", marginTop: 4, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4, display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <span>Total: <strong>{moneda(t.priceSnapshot)}</strong></span>
-                  <span>Pagado: <strong style={{ color: pagadoDe(t) > 0 ? "#166534" : MUTED }}>{moneda(pagadoDe(t))}</strong></span>
+                  <span>Pagado: <strong style={{ color: pagadoDe(t) > 0 ? status.success.fg : MUTED }}>{moneda(pagadoDe(t))}</strong></span>
                   <span>Pago: <strong>{PAGO_LBL[t.paymentStatus] || t.paymentStatus}</strong></span>
                   {t.isOverbook && <span style={{ color: "#9a3412" }}>Sobreturno</span>}
                 </div>
@@ -288,7 +284,6 @@ export default function ReprogramarAdmin() {
       {reprogramar && (
         <ReprogramarModal
           turno={reprogramar}
-          token={token}
           onClose={() => setReprogramar(null)}
           onDone={(info) => {
             setReprogramar(null);
@@ -316,15 +311,15 @@ export default function ReprogramarAdmin() {
             <p style={{ marginTop: 0 }}>
               ¿Cancelar definitivamente el turno de <strong>{cancelar.patient?.person?.name}</strong> ({cancelar.professionalService?.service?.name})?
             </p>
-            <div style={{ fontSize: 13, color: "#475569", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 12px", margin: "8px 0" }}>
+            <div style={{ fontSize: 13, color: colors.textSecondary, background: colors.bg, border: "1px solid colors.border", borderRadius: 8, padding: "10px 12px", margin: "8px 0" }}>
               <div>Era: {fmtFecha(cancelar.startsAt)} {fmtHora(cancelar.startsAt)}</div>
-              <div>Total: <strong>{moneda(cancelar.priceSnapshot)}</strong> · Pagado: <strong style={{ color: pagadoDe(cancelar) > 0 ? "#166534" : MUTED }}>{moneda(pagadoDe(cancelar))}</strong></div>
+              <div>Total: <strong>{moneda(cancelar.priceSnapshot)}</strong> · Pagado: <strong style={{ color: pagadoDe(cancelar) > 0 ? status.success.fg : MUTED }}>{moneda(pagadoDe(cancelar))}</strong></div>
             </div>
             {pagadoDe(cancelar) > 0 && (
               <p style={{ fontSize: 12, color: "#9a3412" }}>⚠ Este turno tiene {moneda(pagadoDe(cancelar))} pagado. El reembolso se gestiona aparte desde la pestaña Turnos.</p>
             )}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <Button type="button" style={{ backgroundColor: "#e2e8f0", color: "#475569" }} onClick={() => setCancelar(null)}>No</Button>
+              <Button type="button" style={{ backgroundColor: colors.border, color: colors.textSecondary }} onClick={() => setCancelar(null)}>No</Button>
               <Button variant="danger" onClick={ejecutarCancelar} disabled={accionando}>
                 {accionando ? "Cancelando…" : "Sí, cancelar turno"}
               </Button>
@@ -336,5 +331,5 @@ export default function ReprogramarAdmin() {
   );
 }
 
-const lbl = { fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 };
+const lbl = { fontSize: 12, color: colors.textSubtle, display: "block", marginBottom: 4 };
 const navBtn = { background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: PURPLE, padding: "0 6px", lineHeight: 1 };

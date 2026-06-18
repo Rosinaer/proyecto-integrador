@@ -1,7 +1,7 @@
 import prisma from '../config/prisma.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer'; 
+import nodemailer from 'nodemailer';
 
 
 const validarEmail = (email) => {
@@ -15,14 +15,24 @@ const validarPassword = (password) => {
 
 export const register = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, documento } = req.body;
+    const {
+      nombre,
+      apellido,
+      email,
+      password,
+      documento
+    } = req.body;
 
     if (!nombre || !apellido || !email || !password) {
-      return res.status(400).json({ message: "Todos los campos son obligatorios" });
+      return res.status(400).json({
+        message: "Todos los campos son obligatorios"
+      });
     }
 
     if (!validarEmail(email)) {
-      return res.status(400).json({ message: "Email inválido" });
+      return res.status(400).json({
+        message: "Email inválido"
+      });
     }
 
     if (!validarPassword(password)) {
@@ -32,11 +42,18 @@ export const register = async (req, res) => {
     }
 
     const personaExistente = await prisma.people.findFirst({
-      where: { email, user: { isNot: null } }
+      where: {
+        email,
+        user: {
+          isNot: null
+        }
+      }
     });
 
     if (personaExistente) {
-      return res.status(400).json({ message: "El email ya está registrado" });
+      return res.status(400).json({
+        message: "El email ya está registrado"
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -58,7 +75,9 @@ export const register = async (req, res) => {
           create: {}
         }
       },
-      include: { user: true }
+      include: {
+        user: true
+      }
     });
 
     res.status(201).json({
@@ -75,42 +94,63 @@ export const register = async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Error en el servidor" });
+    res.status(500).json({
+      error: "Error en el servidor"
+    });
   }
 };
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const {
+      email,
+      password
+    } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email y contraseña obligatorios" });
+      return res.status(400).json({
+        message: "Email y contraseña obligatorios"
+      });
     }
 
     const persona = await prisma.people.findFirst({
-      where: { email, user: { isNot: null } },
-      include: { user: true, professional: { select: { id: true } } }
+      where: {
+        email,
+        user: {
+          isNot: null
+        }
+      },
+      include: {
+        user: true,
+        professional: {
+          select: {
+            id: true
+          }
+        }
+      }
     });
 
     if (!persona || !persona.user) {
-      return res.status(401).json({ message: "Credenciales inválidas" });
+      return res.status(401).json({
+        message: "Credenciales inválidas"
+      });
     }
 
     const passwordValida = await bcrypt.compare(password, persona.user.passwordHash);
 
     if (!passwordValida) {
-      return res.status(401).json({ message: "Credenciales inválidas" });
+      return res.status(401).json({
+        message: "Credenciales inválidas"
+      });
     }
 
-    const token = jwt.sign(
-      {
+    const token = jwt.sign({
         id: persona.user.id,
         role: persona.user.role,
         email: persona.email,
         peopleId: persona.id
       },
-      process.env.JWT_SECRET,
-      {
+      process.env.JWT_SECRET, {
         expiresIn: "1d",
         issuer: "estetica-app"
       }
@@ -132,19 +172,34 @@ export const login = async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Error en el servidor" });
+    res.status(500).json({
+      error: "Error en el servidor"
+    });
   }
 };
 
 export const perfil = async (req, res) => {
   try {
     const persona = await prisma.people.findFirst({
-      where: { user: { id: req.user.id } },
-      include: { user: true, professional: { select: { id: true } } }
+      where: {
+        user: {
+          id: req.user.id
+        }
+      },
+      include: {
+        user: true,
+        professional: {
+          select: {
+            id: true
+          }
+        }
+      }
     });
 
     if (!persona) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({
+        message: "Usuario no encontrado"
+      });
     }
 
     res.json({
@@ -161,7 +216,9 @@ export const perfil = async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al obtener perfil" });
+    res.status(500).json({
+      message: "Error al obtener perfil"
+    });
   }
 };
 
@@ -181,21 +238,34 @@ const transporter = nodemailer.createTransport({
 
 export const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
-    
+    const {
+      email
+    } = req.body;
+
     const persona = await prisma.people.findFirst({
-      where: { email, user: { isNot: null } },
-      include: { user: true }
+      where: {
+        email,
+        user: {
+          isNot: null
+        }
+      },
+      include: {
+        user: true
+      }
     });
 
     if (!persona || !persona.user) {
-      return res.status(404).json({ mensaje: "No existe un usuario registrado con ese email" });
+      return res.status(404).json({
+        mensaje: "No existe un usuario registrado con ese email"
+      });
     }
 
-    const resetToken = jwt.sign(
-      { id: persona.user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' } 
+    const resetToken = jwt.sign({
+        id: persona.user.id
+      },
+      process.env.JWT_SECRET, {
+        expiresIn: '15m'
+      }
     );
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -219,32 +289,49 @@ export const forgotPassword = async (req, res) => {
       `
     });
 
-    res.json({ mensaje: "Te enviamos un correo con las instrucciones." });
+    res.json({
+      mensaje: "Te enviamos un correo con las instrucciones."
+    });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 };
 
 export const resetPassword = async (req, res) => {
   try {
-    const { token, nuevaPassword } = req.body;
+    const {
+      token,
+      nuevaPassword
+    } = req.body;
 
     if (!token || !nuevaPassword) {
-      return res.status(400).json({ mensaje: "El token y la nueva contraseña son obligatorios" });
+      return res.status(400).json({
+        mensaje: "El token y la nueva contraseña son obligatorios"
+      });
     }
 
     const decodificado = jwt.verify(token, process.env.JWT_SECRET);
     const passwordHash = await bcrypt.hash(nuevaPassword, 10);
 
     await prisma.user.update({
-      where: { id: decodificado.id },
-      data: { passwordHash }
+      where: {
+        id: decodificado.id
+      },
+      data: {
+        passwordHash
+      }
     });
 
-    res.json({ mensaje: "¡Contraseña restablecida correctamente! Ya podés iniciar sesión." });
+    res.json({
+      mensaje: "¡Contraseña restablecida correctamente! Ya podés iniciar sesión."
+    });
 
   } catch (error) {
-    res.status(400).json({ mensaje: "El enlace es inválido o ha expirado. Volvé a solicitar uno nuevo." });
+    res.status(400).json({
+      mensaje: "El enlace es inválido o ha expirado. Volvé a solicitar uno nuevo."
+    });
   }
 };

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { BannerProvider } from "./ui/Banner";
+import {colors} from "../theme/colors"; 
 
 const SIDEBAR_WIDTH = 220;
 const MOBILE_BP = 768;
@@ -30,7 +31,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div style={{ height: "100dvh", overflow: "hidden", backgroundColor: "#f8fafc" }}>
+    <div style={{ height: "100dvh", overflow: "hidden", backgroundColor: colors.bg }}>
       <Sidebar
         open={open}
         isMobile={isMobile}
@@ -53,7 +54,7 @@ const AdminLayout = () => {
             height: 42,
             borderRadius: 10,
             border: "none",
-            background: "#1f2937",
+            background: colors.ink,
             color: "#fff",
             fontSize: 20,
             cursor: "pointer",

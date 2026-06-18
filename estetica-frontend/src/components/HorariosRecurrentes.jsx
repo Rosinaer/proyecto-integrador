@@ -3,6 +3,8 @@ import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { TimeInput24 } from "./ui/TimeInput24";
 import { useBanner } from "./ui/Banner";
+import client, { mensajeDeError } from "../api/client";
+import {colors, status} from "../theme/colors"; 
 
 // ─── Constantes / helpers locales ─────────────────────────────
 const DIAS_SEMANA = [
@@ -31,27 +33,27 @@ const ST = {
     paddingBottom: "10px",
     borderBottom: "2px solid #f3e5f5",
   },
-  sectionTitle: { margin: 0, color: "#6b21a8", fontSize: "1rem", fontWeight: "700" },
-  label: { display: "block", fontSize: "13px", fontWeight: "600", color: "#6b21a8", marginBottom: "5px" },
+  sectionTitle: { margin: 0, color: colors.brand, fontSize: "1rem", fontWeight: "700" },
+  label: { display: "block", fontSize: "13px", fontWeight: "600", color: colors.brand, marginBottom: "5px" },
   select: {
     width: "100%", padding: "9px 12px", border: "1px solid #ccc", borderRadius: "6px",
     fontSize: "14px", backgroundColor: "#fff", cursor: "pointer", boxSizing: "border-box",
   },
-  btnCancel: { backgroundColor: "#e2e8f0", color: "#475569" },
+  btnCancel: { backgroundColor: colors.border, color: colors.textSecondary },
   btnIconDelete: { background: "none", border: "none", fontSize: "15px", lineHeight: "1", padding: "0 4px", cursor: "pointer" },
   alertWarn: { backgroundColor: "#fffbeb", border: "1px solid #fbbf24", borderRadius: "8px", padding: "12px 16px", fontSize: "13px", color: "#92400e", marginBottom: "14px" },
-  alertError: { backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "8px", padding: "12px 16px", fontSize: "13px", color: "#991b1b", marginBottom: "14px" },
+  alertError: { backgroundColor: status.error.bg, border: "1px solid status.error.border", borderRadius: "8px", padding: "12px 16px", fontSize: "13px", color: status.error.fg, marginBottom: "14px" },
   inlinePanel: {
     marginBottom: "16px",
     padding: "16px",
     backgroundColor: "#faf5ff",
-    border: "1px solid #e9d5ff",
+    border: "1px solid colors.brandTintLight",
     borderRadius: "8px",
     overflow: "hidden",
     animation: "senda-slide-down 0.18s ease-out",
   },
   inlinePanelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" },
-  inlinePanelTitle: { color: "#6b21a8", fontSize: "13px", fontWeight: "700" },
+  inlinePanelTitle: { color: colors.brand, fontSize: "13px", fontWeight: "700" },
   fieldRow: { display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "12px" },
   fieldCol: { flex: "1 1 130px", minWidth: "130px" },
   editGroup: {
@@ -65,8 +67,7 @@ const ST = {
 
 const FORM_VACIO = { dayOfWeek: 1, startTime: "09:00", endTime: "17:00" };
 
-export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+export function HorariosRecurrentes({ professionalId, onCountChange }) {
   const banner = useBanner();
 
   const [horarios, setHorarios] = useState([]);
@@ -79,28 +80,20 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
   const [form, setForm] = useState(FORM_VACIO);
   const [errorForm, setErrorForm] = useState("");
 
-  const headers = useCallback((extra = {}) => ({
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    ...extra,
-  }), [token]);
-
   const cargar = useCallback(async (profId) => {
     if (!profId) { setHorarios([]); return; }
     setCargando(true);
     try {
-      const res = await fetch(`${API}/professionals/${profId}/schedule`, { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al cargar horarios");
+      const { data } = await client.get(`/professionals/${profId}/schedule`);
       const lista = Array.isArray(data) ? data : [];
       setHorarios([...lista].sort((a, b) => a.dayOfWeek - b.dayOfWeek));
     } catch (err) {
-      banner.error(err.message);
+      banner.error(mensajeDeError(err) || "Error al cargar horarios");
       setHorarios([]);
     } finally {
       setCargando(false);
     }
-  }, [API, headers]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recargar al cambiar de profesional y cerrar cualquier panel abierto
   useEffect(() => {
@@ -160,20 +153,16 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
     const esEdicion = !!editandoId;
     setAccionando(true);
     try {
-      const url = esEdicion
-        ? `${API}/professionals/${professionalId}/schedule/${editandoId}`
-        : `${API}/professionals/${professionalId}/schedule`;
-      const res = await fetch(url, {
-        method: esEdicion ? "PATCH" : "POST",
-        headers: headers(),
-        body: JSON.stringify({
-          dayOfWeek: Number(form.dayOfWeek),
-          startTime: form.startTime,
-          endTime: form.endTime,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al guardar horario");
+      const payload = {
+        dayOfWeek: Number(form.dayOfWeek),
+        startTime: form.startTime,
+        endTime: form.endTime,
+      };
+      if (esEdicion) {
+        await client.patch(`/professionals/${professionalId}/schedule/${editandoId}`, payload);
+      } else {
+        await client.post(`/professionals/${professionalId}/schedule`, payload);
+      }
       const diaLabel = DIAS_SEMANA.find((d) => d.value === Number(form.dayOfWeek))?.label;
       setPanel(false);
       setEditandoId(null);
@@ -181,7 +170,7 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
       await cargar(professionalId);
       banner.success(esEdicion ? `Horario del ${diaLabel} actualizado.` : `Horario del ${diaLabel} agregado correctamente.`);
     } catch (err) {
-      setErrorForm(err.message);
+      setErrorForm(mensajeDeError(err) || "Error al guardar horario");
     } finally {
       setAccionando(false);
     }
@@ -191,20 +180,13 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
     if (!aEliminar) return;
     setAccionando(true);
     try {
-      const res = await fetch(`${API}/professionals/${professionalId}/schedule/${aEliminar.id}`, {
-        method: "DELETE",
-        headers: headers(),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.mensaje || data.error || "Error al eliminar horario");
-      }
+      await client.delete(`/professionals/${professionalId}/schedule/${aEliminar.id}`);
       setAEliminar(null);
       await cargar(professionalId);
       banner.success("Horario recurrente eliminado.");
     } catch (err) {
       setAEliminar(null);
-      banner.error(err.message);
+      banner.error(mensajeDeError(err) || "Error al eliminar horario");
     } finally {
       setAccionando(false);
     }
@@ -217,7 +199,7 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
           {editandoId ? "Editar horario recurrente" : "Nuevo horario recurrente"}
         </span>
       </div>
-      <p style={{ color: "#64748b", fontSize: "12px", marginTop: 0, marginBottom: "12px" }}>
+      <p style={{ color: colors.textSubtle, fontSize: "12px", marginTop: 0, marginBottom: "12px" }}>
         Se repetirá cada semana y se usará al generar la agenda mensual.
       </p>
 
@@ -272,7 +254,7 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
       {panel && !editandoId && renderPanel()}
 
       {cargando ? (
-        <p style={{ color: "#94a3b8", textAlign: "center", padding: "24px 0" }}>Cargando horarios...</p>
+        <p style={{ color: colors.textMuted, textAlign: "center", padding: "24px 0" }}>Cargando horarios...</p>
       ) : horarios.length === 0 ? (
         <div style={ST.alertWarn}>
           <strong>Sin horarios recurrentes.</strong><br />
@@ -294,11 +276,11 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
                     padding: "10px 12px",
                     backgroundColor: enEdicion ? "#ede9fe" : "#f8f4ff",
                     borderRadius: enEdicion ? 0 : "8px",
-                    border: enEdicion ? "none" : "1px solid #e9d5ff",
+                    border: enEdicion ? "none" : "1px solid colors.brandTintLight",
                   }}>
                     <div>
                       <span style={{ fontWeight: "700", color: "#5b21b6", fontSize: "13px" }}>{diaLabel}</span>
-                      <span style={{ fontSize: "13px", color: enEdicion ? "#4c1d95" : "#475569", marginLeft: "12px" }}>
+                      <span style={{ fontSize: "13px", color: enEdicion ? "#4c1d95" : colors.textSecondary, marginLeft: "12px" }}>
                         {formatHora(h.startTime)} → {formatHora(h.endTime)}
                       </span>
                     </div>
@@ -307,7 +289,7 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
                         onClick={() => abrirEditar(h)}
                         disabled={accionando}
                         title="Editar este horario recurrente"
-                        style={{ ...ST.btnIconDelete, color: accionando ? "#cbd5e1" : "#6b21a8" }}
+                        style={{ ...ST.btnIconDelete, color: accionando ? colors.line : colors.brand }}
                       >
                         ✎
                       </button>
@@ -315,7 +297,7 @@ export function HorariosRecurrentes({ professionalId, token, onCountChange }) {
                         onClick={() => setAEliminar({ id: h.id, label: diaLabel })}
                         disabled={accionando}
                         title="Eliminar este horario recurrente"
-                        style={{ ...ST.btnIconDelete, color: accionando ? "#cbd5e1" : "#d32f2f" }}
+                        style={{ ...ST.btnIconDelete, color: accionando ? colors.line : status.error.strong }}
                       >
                         ✕
                       </button>

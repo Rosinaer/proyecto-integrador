@@ -5,6 +5,8 @@ import { Modal } from "./ui/Modal";
 import { TimeInput24 } from "./ui/TimeInput24";
 import { useBanner } from "./ui/Banner";
 import { useAuth } from "../hooks/useAuth";
+import client, { mensajeDeError } from "../api/client";
+import {colors, status} from "../theme/colors"; 
 
 const DIAS_SEMANA = [
   { value: 0, label: "Domingo" },
@@ -31,7 +33,7 @@ const labelStyle = {
   display: "block",
   fontSize: "13px",
   fontWeight: "600",
-  color: "#6b21a8",
+  color: colors.brand,
   marginBottom: "5px",
 };
 
@@ -46,21 +48,20 @@ const selectDiaStyle = {
 };
 
 const cajaError = {
-  backgroundColor: "#fef2f2",
-  border: "1px solid #fca5a5",
-  color: "#991b1b",
+  backgroundColor: status.error.bg,
+  border: "1px solid status.error.border",
+  color: status.error.fg,
   borderRadius: "8px",
   padding: "10px 14px",
   fontSize: "13px",
   marginBottom: "12px",
 };
 
-export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChange }) => {
+export const GestionHorariosRecurrentes = ({ professionalId, onCountChange }) => {
   const banner = useBanner();
   const { user } = useAuth();
   // Recepción solo mira los horarios; Admin y el propio profesional editan.
   const editable = ["ADMIN", "PROFESSIONAL"].includes(user?.role);
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
   const [horarios, setHorarios] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -74,34 +75,23 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
 
   const [aEliminar, setAEliminar] = useState(null); // { id, label }
 
-  const headers = useCallback(
-    (extra = {}) => ({
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...extra,
-    }),
-    [token],
-  );
-
   const cargar = useCallback(async () => {
     if (!professionalId) return;
     setCargando(true);
     setError("");
     try {
-      const res = await fetch(`${API}/professionals/${professionalId}/schedule`, { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al cargar horarios");
+      const { data } = await client.get(`/professionals/${professionalId}/schedule`);
       const lista = Array.isArray(data) ? data : [];
       setHorarios([...lista].sort((a, b) => a.dayOfWeek - b.dayOfWeek));
       onCountChange?.(lista.length);
     } catch (err) {
-      setError(err.message);
+      setError(mensajeDeError(err) || "Error al cargar horarios");
       setHorarios([]);
       onCountChange?.(0);
     } finally {
       setCargando(false);
     }
-  }, [API, headers, professionalId, onCountChange]);
+  }, [professionalId, onCountChange]);
 
   useEffect(() => {
     cargar();
@@ -149,20 +139,16 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
     const esEdicion = !!editandoId;
     setAccionando(true);
     try {
-      const url = esEdicion
-        ? `${API}/professionals/${professionalId}/schedule/${editandoId}`
-        : `${API}/professionals/${professionalId}/schedule`;
-      const res = await fetch(url, {
-        method: esEdicion ? "PATCH" : "POST",
-        headers: headers(),
-        body: JSON.stringify({
-          dayOfWeek: Number(form.dayOfWeek),
-          startTime: form.startTime,
-          endTime: form.endTime,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || "Error al guardar el horario");
+      const payload = {
+        dayOfWeek: Number(form.dayOfWeek),
+        startTime: form.startTime,
+        endTime: form.endTime,
+      };
+      if (esEdicion) {
+        await client.patch(`/professionals/${professionalId}/schedule/${editandoId}`, payload);
+      } else {
+        await client.post(`/professionals/${professionalId}/schedule`, payload);
+      }
       setModalAbierto(false);
       setEditandoId(null);
       banner.success(esEdicion ? "Horario actualizado" : "Horario agregado", {
@@ -175,7 +161,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
       setForm(FORM_VACIO);
       await cargar();
     } catch (err) {
-      setErrorForm(err.message);
+      setErrorForm(mensajeDeError(err) || "Error al guardar el horario");
     } finally {
       setAccionando(false);
     }
@@ -185,22 +171,15 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
     if (!aEliminar) return;
     setAccionando(true);
     try {
-      const res = await fetch(`${API}/professionals/${professionalId}/schedule/${aEliminar.id}`, {
-        method: "DELETE",
-        headers: headers(),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.mensaje || data.error || "Error al eliminar el horario");
-      }
+      await client.delete(`/professionals/${professionalId}/schedule/${aEliminar.id}`);
       const lbl = aEliminar.label;
       setAEliminar(null);
       banner.warning("Horario eliminado", { details: [["Horario", lbl]] });
       await cargar();
     } catch (err) {
       setAEliminar(null);
-      setError(err.message);
-      banner.error(err.message);
+      setError(mensajeDeError(err) || "Error al eliminar el horario");
+      banner.error(mensajeDeError(err) || "Error al eliminar el horario");
     } finally {
       setAccionando(false);
     }
@@ -218,7 +197,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
           marginBottom: "12px",
         }}
       >
-        <h3 style={{ color: "#475569", margin: 0 }}>Horarios recurrentes</h3>
+        <h3 style={{ color: colors.textSecondary, margin: 0 }}>Horarios recurrentes</h3>
         {editable && (
           <Button
             onClick={abrirCrear}
@@ -233,9 +212,9 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
       {error && <div style={cajaError}>{error}</div>}
 
       {cargando ? (
-        <p style={{ color: "#94a3b8", padding: "16px 0" }}>Cargando horarios...</p>
+        <p style={{ color: colors.textMuted, padding: "16px 0" }}>Cargando horarios...</p>
       ) : horarios.length === 0 ? (
-        <p style={{ color: "#94a3b8" }}>Sin horarios cargados.</p>
+        <p style={{ color: colors.textMuted }}>Sin horarios cargados.</p>
       ) : (
         <Table headers={["Día", "Inicio", "Fin", "Acciones"]}>
           {horarios.map((h) => (
@@ -247,7 +226,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
                 {editable ? (
                   <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
                     <Button
-                      style={{ flex: "0 0 auto", padding: "6px 12px", fontSize: "12px", backgroundColor: "#64748b" }}
+                      style={{ flex: "0 0 auto", padding: "6px 12px", fontSize: "12px", backgroundColor: colors.brandBg }}
                       onClick={() => abrirEditar(h)}
                       disabled={accionando}
                     >
@@ -255,7 +234,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
                     </Button>
                     <Button
                       variant="danger"
-                      style={{ flex: "0 0 auto", padding: "6px 12px", fontSize: "12px", backgroundColor: "#d32f2f", color: "#fff" }}
+                      style={{ flex: "0 0 auto", padding: "6px 12px", fontSize: "12px", backgroundColor: status.error.strong, color: "#fff" }}
                       onClick={() => setAEliminar({ id: h.id, label: labelDia(h.dayOfWeek) })}
                       disabled={accionando}
                     >
@@ -263,7 +242,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
                     </Button>
                   </div>
                 ) : (
-                  <span style={{ color: "#94a3b8" }}>—</span>
+                  <span style={{ color: colors.textMuted }}>—</span>
                 )}
               </Td>
             </Tr>
@@ -278,7 +257,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
         title={editandoId ? "Editar Horario Recurrente" : "Agregar Horario Recurrente"}
       >
         <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-          <p style={{ color: "#64748b", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>
+          <p style={{ color: colors.textSubtle, fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>
             Este horario se repetirá cada semana y se usará al generar la agenda mensual.
           </p>
 
@@ -313,7 +292,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap" }}>
             <Button
               type="button"
-              style={{ flex: "0 0 auto", backgroundColor: "#e2e8f0", color: "#475569" }}
+              style={{ flex: "0 0 auto", backgroundColor: colors.border, color: colors.textSecondary }}
               onClick={() => { setModalAbierto(false); setEditandoId(null); }}
             >
               Cancelar
@@ -334,7 +313,7 @@ export const GestionHorariosRecurrentes = ({ professionalId, token, onCountChang
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px", flexWrap: "wrap" }}>
             <Button
               type="button"
-              style={{ flex: "0 0 auto", backgroundColor: "#e2e8f0", color: "#475569" }}
+              style={{ flex: "0 0 auto", backgroundColor: colors.border, color: colors.textSecondary }}
               onClick={() => setAEliminar(null)}
             >
               Cancelar

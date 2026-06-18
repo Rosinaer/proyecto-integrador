@@ -14,6 +14,7 @@ import {
   desactivarServicio,
   obtenerCategorias,
 } from "../../api/services.api";
+import {colors, status} from "../../theme/colors"; 
 
 const ServiciosAdmin = () => {
   const [servicios, setServicios] = useState([]);
@@ -202,7 +203,7 @@ const ServiciosAdmin = () => {
         {servicios.map((s) => (
           <Tr
             key={s.id}
-            style={!s.active ? { backgroundColor: "#f1f5f9", color: "#94a3b8" } : undefined}
+            style={!s.active ? { backgroundColor: colors.borderSoft, color: colors.textMuted } : undefined}
           >
             <Td>
               <strong>{s.name}</strong>
@@ -213,7 +214,7 @@ const ServiciosAdmin = () => {
             <Td>{s.defaultDurationMinutes} min</Td>
 
             <Td>
-              <span style={{ color: s.active ? "#16a34a" : "#d32f2f", fontWeight: "bold" }}>
+              <span style={{ color: s.active ? status.success.strong : status.error.strong, fontWeight: "bold" }}>
                 {s.active ? "● Activo" : "○ Inactivo"}
               </span>
             </Td>
@@ -232,7 +233,7 @@ const ServiciosAdmin = () => {
                       style={{
                         padding: "6px 12px",
                         fontSize: "12px",
-                        backgroundColor: "#64748b",
+                        backgroundColor: colors.textSubtle,
                       }}
                       onClick={() => abrirModalEditar(s)}
                     >
@@ -255,7 +256,7 @@ const ServiciosAdmin = () => {
                     style={{
                       padding: "6px 12px",
                       fontSize: "12px",
-                      backgroundColor: "#16a34a",
+                      backgroundColor: status.success.strong,
                       color: "#fff",
                     }}
                     onClick={() => reactivarServicio(s)}
@@ -391,8 +392,8 @@ const ServiciosAdmin = () => {
             <Button
               type="button"
               style={{
-                backgroundColor: "#e2e8f0",
-                color: "#475569",
+                backgroundColor: colors.border,
+                color: colors.textSecondary,
               }}
               onClick={() => setModalFormAbierto(false)}
             >
@@ -429,8 +430,8 @@ const ServiciosAdmin = () => {
         >
           <Button
             style={{
-              backgroundColor: "#e2e8f0",
-              color: "#475569",
+              backgroundColor: colors.border,
+              color: colors.textSecondary,
             }}
             onClick={() => setModalEliminarAbierto(false)}
           >
