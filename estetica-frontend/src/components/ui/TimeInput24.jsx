@@ -1,10 +1,4 @@
-// ============================================================
-
-// TimeInput24 — selector de hora en formato 24h (00–23 : minutos)
-
-// ============================================================
-
-
+import { colors } from "../../theme/colors";
 
 const HORAS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 
