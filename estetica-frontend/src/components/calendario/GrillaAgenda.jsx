@@ -1,4 +1,4 @@
-import { fmtHora, fmtFechaLarga, minutosDelDia } from "../../utils/fecha";
+import { fmtHora, fmtFechaLarga, minutosDelDia, instanteParaApi } from "../../utils/fecha";
 import { fechaClinicaStr } from "../../config/clinica";
 import {colors} from "../../theme/colors"; 
 
@@ -70,7 +70,26 @@ export const Columna = ({ items, colorDe, onPick }) => (
 );
 
 export const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
-  const items = slots.map((s) => ({ ...s, startsAt: s.startTime, endsAt: s.endTime }));
+  // Los slots de disponibilidad traen startTime/endTime como @db.Time (hora de
+  // pared de la clínica, guardada en UTC: "1970-01-01T09:00:00Z") y date como
+  // @db.Date (medianoche UTC del día). fmtHora y minutosDelDia convierten a
+  // LECTURA_TZ (Buenos_Aires), así que aplicados directo sobre la hora de pared
+  // restan 3 hs y producen el desfasaje. Normalizamos cada slot a un instante
+  // UTC real (igual que los turnos) para que la conversión sea correcta.
+  const fechaSlot = (s) =>
+    s.fecha || new Date(s.date).toISOString().slice(0, 10);
+
+  const aInstante = (s, timeIso) => {
+    const hhmm = new Date(timeIso).toISOString().slice(11, 16);
+    return instanteParaApi(fechaSlot(s), hhmm);
+  };
+
+  const items = slots.map((s) => ({
+    ...s,
+    startsAt: aInstante(s, s.startTime),
+    endsAt:   aInstante(s, s.endTime),
+  }));
+
   return (
     <div style={{
       position: "relative", height: ALTO, borderLeft: "1px solid colors.border",
@@ -85,7 +104,7 @@ export const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
         return (
           <div key={t.id}
             onClick={() => onPick && onPick(t)}
-            title={`${nombreDe[t.professionalId] || ""} · ${fmtHora(t.startTime)}–${fmtHora(t.endTime)}${ocupados ? ` · ${ocupados} turno${ocupados === 1 ? "" : "s"}` : " · libre"}`}
+            title={`${nombreDe[t.professionalId] || ""} · ${fmtHora(t.startsAt)}–${fmtHora(t.endsAt)}${ocupados ? ` · ${ocupados} turno${ocupados === 1 ? "" : "s"}` : " · libre"}`}
             style={{
               position: "absolute", top, height, left: `calc(${w * col}% + 2px)`, width: `calc(${w}% - 4px)`,
               background: `${color}14`, border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`,
@@ -95,7 +114,7 @@ export const ColumnaCobertura = ({ slots, colorDe, nombreDe, onPick }) => {
             <div style={{ fontWeight: 700, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {nombreDe[t.professionalId] || "—"}
             </div>
-            <div style={{ color: colors.textSecondary, whiteSpace: "nowrap" }}>{fmtHora(t.startTime)}–{fmtHora(t.endTime)}</div>
+            <div style={{ color: colors.textSecondary, whiteSpace: "nowrap" }}>{fmtHora(t.startsAt)}–{fmtHora(t.endsAt)}</div>
             {height > 50 && (
               <div style={{ color: colors.textSubtle }}>
                 {ocupados > 0 ? `${ocupados} turno${ocupados === 1 ? "" : "s"} reservado${ocupados === 1 ? "" : "s"}` : "libre"}
