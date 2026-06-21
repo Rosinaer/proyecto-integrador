@@ -194,7 +194,7 @@ Cada entorno escribe en un calendario distinto según `GOOGLE_CALENDAR_ID`. Si u
 
 Por defecto se usa SMTP de Gmail mediante Nodemailer (`EMAIL_USER` y `EMAIL_PASS`, esta última una contraseña de aplicación de Gmail). Como alternativa puede usarse Brevo vía su API HTTP, configurando `ALTERNATIVE_MAILER=true` y `BREVO_API_KEY`.
 
-> **Recordatorios en producción (Render):** el envío por SMTP funciona en el entorno local, pero el plan gratuito de Render bloquea las conexiones SMTP salientes, por lo que Nodemailer no puede enviar desde el backend desplegado. Para habilitar los recordatorios en producción, usar el proveedor alternativo Brevo (`ALTERNATIVE_MAILER=true` + `BREVO_API_KEY`), que opera sobre HTTP y no depende de SMTP.
+> **Recordatorios en producción (Render):** el envío por SMTP funciona en el entorno local, pero el plan gratuito de Render bloquea las conexiones SMTP salientes, por lo que Nodemailer no puede enviar desde el backend desplegado. 
 
 ## Despliegue
 
