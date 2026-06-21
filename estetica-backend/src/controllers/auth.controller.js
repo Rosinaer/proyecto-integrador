@@ -1,7 +1,7 @@
 import prisma from '../config/prisma.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+import transporter from '../config/mailer.js';
 
 
 const validarEmail = (email) => {
@@ -222,19 +222,6 @@ export const perfil = async (req, res) => {
   }
 };
 
-
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
 
 export const forgotPassword = async (req, res) => {
   try {

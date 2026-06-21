@@ -71,6 +71,7 @@ const TurnosAdmin = () => {
       try {
         const { data: fresh } = await client.get(`/appointments/${turno.id}`);
         setDetalle((d) => (d && d.id === fresh.id ? fresh : d));
+        setSlotTurnos((arr) => arr.map((t) => (t.id === fresh.id ? fresh : t)));
       } catch { /* se verá al reabrir el turno */ }
     } catch (err) {
       banner.error(mensajeDeError(err) || "No se pudo enviar el recordatorio");
@@ -86,6 +87,7 @@ const TurnosAdmin = () => {
       await client.patch(`/appointments/${turno.id}/status`, { status });
       setEstadoTurno(null);
       setTurnos((arr) => arr.map((t) => (t.id === turno.id ? { ...t, status } : t)));
+      setSlotTurnos((arr) => arr.map((t) => (t.id === turno.id ? { ...t, status } : t)));
       cargarTurnos();
       window.dispatchEvent(new Event("senda:appointments-changed"));
       banner.success("Estado del turno actualizado", {
@@ -122,6 +124,18 @@ const TurnosAdmin = () => {
       const turnoCobrado = cobroTurno;
       const totalPagado = pagadoDe(cobroTurno) + Number(formCobro.amount);
       setCobroTurno(null);
+
+      // Releer el turno y propagarlo a TODAS las vistas abiertas: lista semanal
+      // (turnos), modal de agenda/slot del día (slotTurnos) y detalle. El
+      // setSlotTurnos es el que arregla que, al reabrir el turno desde el modal
+      // de la agenda del día que quedó abierto, figure el pago recién hecho.
+      try {
+        const { data: fresh } = await client.get(`/appointments/${turnoCobrado.id}`);
+        setTurnos((arr) => arr.map((t) => (t.id === fresh.id ? fresh : t)));
+        setSlotTurnos((arr) => arr.map((t) => (t.id === fresh.id ? fresh : t)));
+        setDetalle((d) => (d && d.id === fresh.id ? fresh : d));
+      } catch { /* se reflejará al recargar la agenda */ }
+
       cargarTurnos();
       window.dispatchEvent(new Event("senda:appointments-changed"));
       banner.success("Cobro registrado", {

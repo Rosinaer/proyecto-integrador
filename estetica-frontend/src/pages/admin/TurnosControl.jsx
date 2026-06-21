@@ -200,6 +200,16 @@ const TurnosControl = () => {
       const totalPagado = pagadoDe(cobroTurno) + Number(formCobro.amount);
       const turnoCobrado = cobroTurno;
       setCobroTurno(null);
+
+      // Releer el turno actualizado y propagarlo a la lista y al detalle, para
+      // que el pago se refleje al instante aunque se reabra el detalle desde un
+      // modal que quedó abierto (evita el "sigue como si no se hubiera pagado").
+      try {
+        const { data: fresh } = await client.get(`/appointments/${turnoCobrado.id}`);
+        setTurnos((arr) => arr.map((t) => (t.id === fresh.id ? fresh : t)));
+        setDetalle((d) => (d && d.id === fresh.id ? fresh : d));
+      } catch { /* se reflejará al recargar la lista */ }
+
       refrescar();
       window.dispatchEvent(new Event("senda:appointments-changed"));
       banner.success("Cobro registrado", {

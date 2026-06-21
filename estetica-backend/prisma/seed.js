@@ -52,19 +52,19 @@ async function main() {
   // 2. Staff de Profesionales Reales
   const profesionales = [
     {
-      name: 'Dra. Leila Belén Senger', document: '20000001', email: 'lsenger@espaciosenda.com',
+      name: 'Dra. Leila Belén Senger', document: '20000001', email: 'pruebaespaciosenda@gmail.com',
       specialty: 'Cardiología', bio: 'UBA. MN 156.746'
     },
     {
-      name: 'Dra. Julieta Busso', document: '20000002', email: 'jbusso@espaciosenda.com',
+      name: 'Dra. Julieta Busso', document: '20000002', email: 'pruebaespaciosenda@gmail.com',
       specialty: 'Odontología', bio: 'UNR. MN 31995'
     },
     {
-      name: 'Dra. Jaquelina Grassetti', document: '20000003', email: 'jgrassetti@espaciosenda.com',
+      name: 'Dra. Jaquelina Grassetti', document: '20000003', email: 'pruebaespaciosenda@gmail.com',
       specialty: 'Medicina estética y armonización facial', bio: 'MP 23.602'
     },
     {
-      name: 'Dra. Valeria Montero', document: '20000004', email: 'vmontero@espaciosenda.com',
+      name: 'Dra. Valeria Montero', document: '20000004', email: 'pruebaespaciosenda@gmail.com',
       specialty: 'Ginecología', bio: 'UBA. MN 108.536'
     }
   ];
